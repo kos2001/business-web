@@ -6,6 +6,7 @@ import {
   miChatAsRunEvents,
   miGenerateReportAsRunEvents,
 } from "@/lib/mi-report";
+import { maDiagnoseAsRunEvents } from "@/lib/marketing-agent";
 import { claim } from "@/lib/pending-runs";
 
 export const dynamic = "force-dynamic";
@@ -34,24 +35,32 @@ export async function GET(
   const agent = findAgent(new URL(req.url).searchParams.get("agent") ?? "");
   if (!agent) return new Response("Unknown agent", { status: 404 });
 
-  if (agent.backend === "mi-report") {
+  if (agent.backend !== "hermes") {
     const pendingRun = claim(runId);
     if (!pendingRun) {
       return new Response("Run not found or already streamed", { status: 404 });
     }
     try {
-      const stream =
-        pendingRun.kind === "report"
-          ? await miGenerateReportAsRunEvents(
-              runId,
-              { ...DEFAULT_REPORT_PARAMS, period: pendingRun.prompt },
-              req.signal,
-            )
-          : await miChatAsRunEvents(
-              runId,
-              { message: pendingRun.prompt, sessionId: pendingRun.sessionId },
-              req.signal,
-            );
+      let stream: ReadableStream<Uint8Array>;
+      if (pendingRun.kind === "diagnose") {
+        stream = await maDiagnoseAsRunEvents(
+          runId,
+          { text: pendingRun.prompt },
+          req.signal,
+        );
+      } else if (pendingRun.kind === "report") {
+        stream = await miGenerateReportAsRunEvents(
+          runId,
+          { ...DEFAULT_REPORT_PARAMS, period: pendingRun.prompt },
+          req.signal,
+        );
+      } else {
+        stream = await miChatAsRunEvents(
+          runId,
+          { message: pendingRun.prompt, sessionId: pendingRun.sessionId },
+          req.signal,
+        );
+      }
       return new Response(stream, { headers: SSE_HEADERS });
     } catch (err) {
       return errorResponse(err);

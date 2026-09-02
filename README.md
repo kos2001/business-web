@@ -9,6 +9,7 @@
 | 영업 실행 | **미팅 정리** | hermes `sales-agent` | `discovery-notes`, `followup-email` |
 | 영업 실행 | **제안서** | hermes `sales-agent` | `proposal-outline` |
 | 계약 | **계약서 분석** | hermes `contract-review` (`:8659`) | 전용 SOUL.md |
+| 관리 | **영업 현황진단** | `marketing-agent` (`:8012`) | 10개 에이전트 · 축자 인용 그라운딩 |
 | 관리 | **딜·파이프라인** | hermes `sales-agent` | `deal-risk-review`, `pipeline-hygiene` |
 
 `customer-data-handling` 스킬은 `sales-agent`의 모든 작업에 항상 적용됩니다.
@@ -37,20 +38,32 @@
 | 대화 상태 | `conversation_history` / `session_id` |
 | 취소 | `POST /v1/runs/{id}/stop` |
 
-MI도 같은 이유로 재구현하지 않습니다. `mi-report`가 코퍼스 인제스트(Confluence,
-SEC EDGAR, DART, 한경, 뉴스), 하이브리드 검색, 근거 검증, LLM Wiki를 이미 갖고
-있으므로 이 앱은 그쪽을 프록시합니다 — 질문은 `/agent/chat/stream`, 주간 리포트
-작성은 `/report/generate/stream` + `/report/render`.
+MI와 영업 현황진단도 같은 이유로 재구현하지 않습니다.
 
-## 두 프로토콜, 하나의 UI
+- `mi-report`는 코퍼스 인제스트(Confluence, SEC EDGAR, DART, 한경, 뉴스),
+  하이브리드 검색, 근거 검증, LLM Wiki를 이미 갖고 있습니다 — 질문은
+  `/agent/chat/stream`, 주간 리포트 작성은 `/report/generate/stream` + `/report/render`.
+- `marketing-agent`는 실적 자료를 채널별 진단·지표·전략 3축·Action Items로
+  바꾸는 10개 에이전트 하네스입니다. 축자 인용 그라운딩과 판단 보류 표기까지
+  들어 있어 다시 만들면 반드시 더 나빠집니다 — `POST /sources` → `/pipeline/run`.
 
-두 백엔드는 SSE 어휘가 다릅니다:
+## 세 백엔드, 하나의 프로토콜
 
-- hermes: `{"event": "message.delta" | "tool.started" | "run.completed" | …}`
-- mi-report: `{"type": "delta" | "progress" | "done" | "error"}`
+셋의 인터페이스가 전부 다릅니다:
 
-`src/lib/mi-report.ts`가 서버에서 mi-report를 hermes 형태로 번역합니다. 브라우저는
-어휘 하나만 알면 되고, `useRun`·`run-events.ts`는 백엔드를 구분하지 않습니다.
+| 백엔드 | 인터페이스 |
+|---|---|
+| hermes | SSE `{"event": "message.delta" \| "tool.started" \| "run.completed" …}` |
+| mi-report | SSE `{"type": "delta" \| "progress" \| "done" \| "error"}` |
+| marketing-agent | **SSE 없음** — `/pipeline/run`이 블로킹 POST로 구조화된 리포트 반환 |
+
+서버에서 전부 hermes 형태로 번역합니다 (`src/lib/mi-report.ts`,
+`src/lib/marketing-agent.ts`). 브라우저는 어휘 하나만 알면 되고,
+`useRun`·`run-events.ts`는 백엔드를 구분하지 않습니다.
+
+marketing-agent는 SSE가 없어 UI가 수 분간 죽어 보이므로, 어댑터가 단계마다
+진행 프레임을 직접 냅니다 — 실제로 일어나는 일을 정직하게 표시하되, 에이전트가
+스트리밍해 준 것은 아닙니다.
 
 ## 반드시 알아야 할 것 세 가지
 
@@ -96,6 +109,10 @@ contract-review gateway run
 # mi-report 백엔드
 cd ~/gitspace/mi-report/backend && .venv/bin/python -m uvicorn app.main:app --port 8000
 # 또는: cd ~/gitspace/mi-report && docker compose up
+
+# marketing-agent 백엔드 (영업 현황진단) — hermes marketing-agent 프로필(:8654) 필요
+hermes -p marketing-agent gateway run
+cd ~/gitspace/marketing-agent/backend && .venv/bin/python -m uvicorn app.main:app --port 8012
 ```
 
 검증 게이트: `npm run test && npm run typecheck && npm run build`
@@ -115,6 +132,7 @@ Next.js route handlers  (src/app/api/**)
 | `src/lib/agents.ts` | 워크스페이스 ↔ 백엔드·스킬 매핑. **워크스페이스 추가는 이 파일만 고칩니다.** |
 | `src/lib/hermes.ts` | 서버 전용 게이트웨이 클라이언트. 키 보관, 업스트림 핀 고정 |
 | `src/lib/mi-report.ts` | mi-report 클라이언트 (코퍼스 Q&A + 주간 리포트) + 이벤트 번역 + 출처 렌더링 |
+| `src/lib/marketing-agent.ts` | marketing-agent 클라이언트 + 진행 프레임 생성 + 리포트 Markdown 렌더 |
 | `src/lib/mi-sessions.ts` | 이 앱 세션 ↔ mi-report 세션 매핑 |
 | `src/lib/pending-runs.ts` | mi-report run의 POST↔events 사이 프롬프트 보관 |
 | `src/lib/staging.ts` | 업로드 파일 스테이징 (경로 살균, 확장자 허용목록, TTL 정리) |
@@ -160,6 +178,8 @@ Next.js route handlers  (src/app/api/**)
   들여다보는 것입니다. MI **질문 답변**(코퍼스 Q&A)은 정상 동작합니다.
 - **리드 발굴(prospecting)과 견적(quote) 워크스페이스가 없습니다.** 전자는 외부
   데이터 소스, 후자는 가격 정책·승인 라인이 필요해 지금 붙일 근거가 없습니다.
+- **영업 현황진단은 회차를 매번 새로 만듭니다.** 이전 회차와의 타임라인 연속성
+  (marketing-agent가 지원하는 기능)을 이 앱에서는 아직 쓰지 않습니다.
 - **MI 워크스페이스는 승인 흐름을 지원하지 않습니다.** mi-report가 hermes의
   `approval.request`를 중계하지 않아, 승인이 필요한 도구는 에이전트가 우회합니다.
 - **대화가 서버에 저장되지 않습니다.** 새로고침하면 사라집니다. (mi-report는 자기

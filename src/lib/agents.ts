@@ -24,13 +24,17 @@
 /**
  * Which service actually answers.
  *
- * "hermes"    — a hermes-agent api_server behind hermes-gateway.
- * "mi-report" — the mi-report FastAPI app, which owns the MI corpus and its own
- *               retrieval stack. Its stream is translated to hermes-shaped
- *               events server-side (src/lib/mi-report.ts), so the UI sees one
- *               protocol either way.
+ * "hermes"          — a hermes-agent api_server behind hermes-gateway.
+ * "mi-report"       — the mi-report FastAPI app, which owns the MI corpus and
+ *                     its own retrieval stack.
+ * "marketing-agent" — the marketing-agent harness, ten agents that turn raw
+ *                     sales/marketing material into a cited diagnosis.
+ *
+ * Only hermes speaks the run-event protocol natively. The other two are
+ * translated to hermes-shaped events server-side (src/lib/mi-report.ts,
+ * src/lib/marketing-agent.ts) so the UI only ever sees one protocol.
  */
-export type Backend = "hermes" | "mi-report";
+export type Backend = "hermes" | "mi-report" | "marketing-agent";
 
 export interface AgentDef {
   /** URL segment and stable key. */
@@ -149,6 +153,21 @@ export const AGENTS: AgentDef[] = [
       "첨부한 계약서를 을(자사) 관점에서 검토해 줘.",
       "해지·손해배상·지연배상 조항만 심각도 순으로 정리해 줘.",
       "있어야 하는데 빠진 조항이 뭔지 짚어 줘.",
+    ],
+  },
+  {
+    slug: "diagnosis",
+    label: "영업 현황진단",
+    blurb: "실적 자료를 넣으면 채널별 진단·지표·전략 3축·Action Items를 인용과 함께 만듭니다.",
+    stage: "관리",
+    // Routed to the marketing-agent harness. Ten agents with verbatim-quote
+    // grounding already live there; `upstream`/`model` are unused for this
+    // backend and kept only so the roster type stays uniform.
+    backend: "marketing-agent",
+    upstream: "marketing-agent",
+    model: "marketing-agent",
+    starters: [
+      "이번 달 채널별 실적 자료를 붙여넣고 현황진단을 받아 보세요.",
     ],
   },
   {

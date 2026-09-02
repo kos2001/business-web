@@ -1,12 +1,13 @@
 /**
- * Holds the prompt for a mi-report run between `POST /api/runs` and the
+ * Holds the prompt for a proxied-backend run between `POST /api/runs` and the
  * browser's follow-up `GET /api/runs/{id}/events`.
  *
  * hermes splits those two naturally — the run is already executing server-side
- * and the event fetch just attaches to it. mi-report has no such split: its
- * `/agent/chat/stream` is one request that streams the answer. To keep a single
- * shape in the browser, the POST reserves a run id and parks the message here,
- * and the events request is what actually calls mi-report.
+ * and the event fetch just attaches to it. The proxied backends have no such
+ * split: mi-report's `/agent/chat/stream` is one request that streams the
+ * answer, and marketing-agent's `/pipeline/run` is one request that blocks. To
+ * keep a single shape in the browser, the POST reserves a run id and parks the
+ * message here, and the events request is what actually calls the backend.
  *
  * In-memory, so this assumes a single Next.js instance. That holds for the
  * current localhost deployment; behind more than one replica, a sticky session
@@ -16,8 +17,12 @@
 export interface PendingRun {
   prompt: string;
   sessionId?: string;
-  /** "chat" answers a question; "report" runs the weekly-report pipeline. */
-  kind: "chat" | "report";
+  /**
+   * Which job the events request should run: "chat" answers a question,
+   * "report" runs mi-report's weekly-report pipeline, "diagnose" runs
+   * marketing-agent's ten-agent diagnosis.
+   */
+  kind: "chat" | "report" | "diagnose";
   createdAt: number;
 }
 

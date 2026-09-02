@@ -49,15 +49,20 @@ export async function POST(req: Request) {
   const protect = body.protect !== false;
   const { text, hits } = protect ? redact(raw) : { text: raw, hits: {} };
 
-  // mi-report streams its answer from the same request that starts it, so there
-  // is nothing to start here — reserve an id and let the events route drive it.
-  // See src/lib/pending-runs.ts for why the split exists at all.
-  if (agent.backend === "mi-report") {
-    const runId = `mi_${randomUUID().replace(/-/g, "")}`;
+  // The proxied backends produce their answer from the same request that starts
+  // it, so there is nothing to start here — reserve an id and let the events
+  // route drive it. See src/lib/pending-runs.ts for why the split exists.
+  if (agent.backend !== "hermes") {
+    const runId = `px_${randomUUID().replace(/-/g, "")}`;
     reserve(runId, {
       prompt: text,
       sessionId: body.sessionId,
-      kind: isReport ? "report" : "chat",
+      kind:
+        agent.backend === "marketing-agent"
+          ? "diagnose"
+          : isReport
+            ? "report"
+            : "chat",
     });
     return NextResponse.json({
       run_id: runId,
