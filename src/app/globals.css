@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #12151a;
+  --color-ink-soft: #5b6472;
+  --color-line: #e3e7ed;
+  --color-surface: #ffffff;
+  --color-canvas: #f6f7f9;
+  --color-accent: #2f5bd7;
+  --color-warn: #b4530a;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo",
+    "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Markdown output from the agent. Scoped so it can't leak into the chrome. */
+.prose-agent :where(p, ul, ol, pre, table) {
+  margin-block: 0.65rem;
+}
+.prose-agent :where(h1, h2, h3) {
+  font-weight: 600;
+  margin-block: 1rem 0.5rem;
+}
+.prose-agent :where(ul) {
+  list-style: disc;
+  padding-inline-start: 1.25rem;
+}
+.prose-agent :where(ol) {
+  list-style: decimal;
+  padding-inline-start: 1.25rem;
+}
+.prose-agent :where(code) {
+  background: var(--color-canvas);
+  border: 1px solid var(--color-line);
+  border-radius: 4px;
+  padding: 0.05rem 0.3rem;
+  font-size: 0.86em;
+}
+.prose-agent :where(pre) {
+  background: var(--color-canvas);
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  padding: 0.75rem;
+  overflow-x: auto;
+}
+.prose-agent :where(pre code) {
+  border: 0;
+  padding: 0;
+  background: none;
+}
+.prose-agent :where(table) {
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+  width: max-content;
+  max-width: 100%;
+}
+.prose-agent :where(th, td) {
+  border: 1px solid var(--color-line);
+  padding: 0.35rem 0.6rem;
+  text-align: left;
+}
