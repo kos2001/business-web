@@ -8,19 +8,25 @@ import { useRun, type Attachment } from "./useRun";
 interface NavItem {
   slug: string;
   label: string;
+  stage: string;
 }
+
+/** Sales-cycle order. The nav reads top to bottom as the deal progresses. */
+const STAGE_ORDER = ["조사", "영업 실행", "계약", "관리"];
 
 export default function Workspace({
   slug,
   label,
   blurb,
   starters,
+  actions,
   nav,
 }: {
   slug: string;
   label: string;
   blurb: string;
   starters: string[];
+  actions?: { id: "report"; label: string; hint: string }[];
   nav: NavItem[];
 }) {
   // One session id per workspace per conversation. It scopes hermes's long-term
@@ -95,34 +101,47 @@ export default function Workspace({
           <p className="text-sm font-semibold">영업 에이전트</p>
           <p className="mt-0.5 text-xs text-ink-soft">hermes-agent 백엔드</p>
         </div>
-        <nav className="flex flex-col gap-0.5">
-          {nav.map((item) => {
-            const active = item.slug === slug;
-            const status = health[item.slug];
-            return (
-              <Link
-                key={item.slug}
-                href={`/w/${item.slug}`}
-                className={`flex items-center justify-between rounded-md px-2.5 py-2 text-sm ${
-                  active
-                    ? "bg-accent/10 font-medium text-accent"
-                    : "text-ink-soft hover:bg-canvas hover:text-ink"
-                }`}
-              >
-                <span>{item.label}</span>
-                <span
-                  aria-label={status === "ok" ? "정상" : "확인 필요"}
-                  className={`size-1.5 rounded-full ${
-                    status === "ok"
-                      ? "bg-emerald-500"
-                      : status
-                        ? "bg-amber-500"
-                        : "bg-line"
-                  }`}
-                />
-              </Link>
-            );
-          })}
+        <nav className="flex flex-col gap-3 overflow-y-auto">
+          {STAGE_ORDER.filter((stage) => nav.some((n) => n.stage === stage)).map(
+            (stage) => (
+              <div key={stage}>
+                <p className="px-2.5 pb-1 text-[11px] font-medium tracking-wide text-ink-soft/70">
+                  {stage}
+                </p>
+                <div className="flex flex-col gap-0.5">
+                  {nav
+                    .filter((item) => item.stage === stage)
+                    .map((item) => {
+                      const active = item.slug === slug;
+                      const status = health[item.slug];
+                      return (
+                        <Link
+                          key={item.slug}
+                          href={`/w/${item.slug}`}
+                          className={`flex items-center justify-between rounded-md px-2.5 py-2 text-sm ${
+                            active
+                              ? "bg-accent/10 font-medium text-accent"
+                              : "text-ink-soft hover:bg-canvas hover:text-ink"
+                          }`}
+                        >
+                          <span>{item.label}</span>
+                          <span
+                            aria-label={status === "ok" ? "정상" : "확인 필요"}
+                            className={`size-1.5 shrink-0 rounded-full ${
+                              status === "ok"
+                                ? "bg-emerald-500"
+                                : status
+                                  ? "bg-amber-500"
+                                  : "bg-line"
+                            }`}
+                          />
+                        </Link>
+                      );
+                    })}
+                </div>
+              </div>
+            ),
+          )}
         </nav>
         <div className="mt-auto px-2 pt-4">
           <button
@@ -166,6 +185,23 @@ export default function Workspace({
             </div>
           )}
           <div className="mx-auto flex max-w-3xl flex-col gap-4">
+            {run.turns.length === 0 && !busy && actions && actions.length > 0 && (
+              <div className="pt-8">
+                {actions.map((a) => (
+                  <button
+                    key={a.id}
+                    onClick={() =>
+                      void run.send(a.label, protect, [], a.id)
+                    }
+                    className="w-full rounded-lg border border-accent/40 bg-accent/5 px-3.5 py-3 text-left hover:bg-accent/10"
+                  >
+                    <span className="text-sm font-medium text-accent">{a.label}</span>
+                    <span className="mt-0.5 block text-xs text-ink-soft">{a.hint}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
             {run.turns.length === 0 && !busy && (
               <div className="pt-8">
                 <p className="text-sm text-ink-soft">이렇게 시작해 보세요</p>

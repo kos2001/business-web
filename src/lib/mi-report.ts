@@ -90,6 +90,98 @@ export async function miChatAsRunEvents(
   return translate(upstream.body, runId, input.sessionId);
 }
 
+/**
+ * Runs the weekly-report pipeline and streams it as hermes run events.
+ *
+ * This is a different thing from `miChatAsRunEvents`: chat answers a question,
+ * whereas `/report/generate/stream` runs mi-report's actual authoring pipeline
+ * — parallel digest / priority-risk / critical-point analysis, per-topic
+ * summaries, then grounding audits over the whole draft. It is slow (observed
+ * over four minutes on a small corpus), which is why it streams progress rather
+ * than blocking, and why nothing here sets a short timeout.
+ *
+ * Its `done` frame carries the report object, not prose. Markdown is a second
+ * call to `/report/render`, which applies the template without re-generating.
+ */
+export async function miGenerateReportAsRunEvents(
+  runId: string,
+  params: ReportParams,
+  signal?: AbortSignal,
+): Promise<ReadableStream<Uint8Array>> {
+  const upstream = await fetch(`${BASE}/report/generate/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      issueNo: params.issueNo,
+      period: params.period,
+      maxTopics: params.maxTopics,
+      digestLimit: params.digestLimit,
+      topicLimit: params.topicLimit,
+    }),
+    cache: "no-store",
+    signal,
+  });
+
+  if (!upstream.ok || !upstream.body) {
+    const detail = await upstream.text().catch(() => "");
+    throw new Error(
+      `mi-report 리포트 생성 오류 (${upstream.status}): ${detail.slice(0, 200)}`,
+    );
+  }
+
+  return translate(upstream.body, runId, undefined, renderReport);
+}
+
+export interface ReportParams {
+  issueNo: number;
+  period: string;
+  maxTopics: number;
+  digestLimit: number;
+  topicLimit: number;
+}
+
+export const DEFAULT_REPORT_PARAMS: ReportParams = {
+  issueNo: 1,
+  period: "",
+  maxTopics: 3,
+  digestLimit: 20,
+  topicLimit: 20,
+};
+
+/**
+ * Turns the report object from a `done` frame into the Markdown the user reads.
+ * Falls back to a readable summary if rendering fails — a generated report that
+ * cannot be rendered should still not be thrown away.
+ */
+async function renderReport(done: Record<string, unknown>): Promise<string> {
+  const report = { ...done };
+  delete report.type;
+
+  try {
+    const res = await fetch(`${BASE}/report/render`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ report }),
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const body = (await res.json()) as { filename?: string; markdown?: string };
+      if (body.markdown) {
+        const name = body.filename ? `**${body.filename}**\n\n` : "";
+        return name + body.markdown;
+      }
+    }
+  } catch {
+    /* fall through to the raw summary */
+  }
+
+  return (
+    "리포트는 생성됐지만 Markdown 렌더에 실패했습니다. 원본 데이터:\n\n```json\n" +
+    JSON.stringify(report, null, 2).slice(0, 4000) +
+    "\n```"
+  );
+}
+
 /** mi-report frame → hermes frame. Exported for the unit tests. */
 export function translateEvent(
   raw: Record<string, unknown>,
@@ -191,6 +283,8 @@ function translate(
   body: ReadableStream<Uint8Array>,
   runId: string,
   clientSessionId?: string,
+  /** Report runs need a second call to turn the done payload into prose. */
+  renderDone?: (done: Record<string, unknown>) => Promise<string>,
 ): ReadableStream<Uint8Array> {
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
@@ -231,8 +325,11 @@ function translate(
               if (clientSessionId) rememberMiSession(clientSessionId, parsed.sessionId);
             }
 
-            const out = translateEvent(parsed, runId);
+            let out = translateEvent(parsed, runId);
             if (!out) continue;
+            if (renderDone && parsed.type === "done") {
+              out = { ...out, output: await renderDone(parsed) };
+            }
             if (out.event === "run.completed" || out.event === "run.failed") {
               sawTerminal = true;
             }

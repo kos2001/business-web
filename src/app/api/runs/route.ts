@@ -15,6 +15,8 @@ interface Body {
   sessionId?: string;
   /** Client may ask to send verbatim; redaction is on unless explicitly off. */
   protect?: boolean;
+  /** Non-chat job to run instead of a conversation turn. */
+  action?: "report";
 }
 
 export async function POST(req: Request) {
@@ -30,8 +32,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unknown agent" }, { status: 404 });
   }
 
+  const isReport = body.action === "report";
+  if (isReport && agent.backend !== "mi-report") {
+    return NextResponse.json(
+      { error: "이 워크스페이스는 리포트 생성을 지원하지 않습니다." },
+      { status: 400 },
+    );
+  }
+
   const raw = String(body.input ?? "").trim();
-  if (!raw) {
+  if (!raw && !isReport) {
     return NextResponse.json({ error: "Empty input" }, { status: 400 });
   }
 
@@ -44,7 +54,11 @@ export async function POST(req: Request) {
   // See src/lib/pending-runs.ts for why the split exists at all.
   if (agent.backend === "mi-report") {
     const runId = `mi_${randomUUID().replace(/-/g, "")}`;
-    reserve(runId, { prompt: text, sessionId: body.sessionId });
+    reserve(runId, {
+      prompt: text,
+      sessionId: body.sessionId,
+      kind: isReport ? "report" : "chat",
+    });
     return NextResponse.json({
       run_id: runId,
       status: "started",
@@ -58,6 +72,7 @@ export async function POST(req: Request) {
       upstream: agent.upstream,
       model: agent.model,
       input: text,
+      instructions: agent.instructions,
       history: body.history,
       sessionId: body.sessionId,
     });

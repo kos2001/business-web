@@ -137,8 +137,13 @@ export function useRun(agent: string, sessionId: string) {
   );
 
   const send = useCallback(
-    async (input: string, protect: boolean, files: Attachment[] = []) => {
-      if (state !== "idle" || (!input.trim() && files.length === 0)) return;
+    async (
+      input: string,
+      protect: boolean,
+      files: Attachment[] = [],
+      action?: "report",
+    ) => {
+      if (state !== "idle" || (!input.trim() && files.length === 0 && !action)) return;
       setError(null);
       setTools([]);
       setRedacted({});
@@ -165,6 +170,7 @@ export function useRun(agent: string, sessionId: string) {
             agent,
             input: prompt,
             protect,
+            ...(action ? { action } : {}),
             sessionId,
             history: turnsRef.current.map((t) => ({
               role: t.role === "agent" ? "assistant" : "user",

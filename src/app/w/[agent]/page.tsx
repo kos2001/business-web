@@ -21,7 +21,8 @@ export default async function AgentPage({
       label={agent.label}
       blurb={agent.blurb}
       starters={agent.starters}
-      nav={AGENTS.map((a) => ({ slug: a.slug, label: a.label }))}
+      actions={agent.actions}
+      nav={AGENTS.map((a) => ({ slug: a.slug, label: a.label, stage: a.stage }))}
     />
   );
 }

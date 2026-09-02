@@ -17,6 +17,7 @@ export async function GET() {
       slug: a.slug,
       label: a.label,
       blurb: a.blurb,
+      stage: a.stage,
       starters: a.starters,
       status:
         a.backend === "mi-report"

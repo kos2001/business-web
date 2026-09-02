@@ -1,7 +1,11 @@
 import { findAgent } from "@/lib/agents";
 import { errorResponse } from "@/lib/api-errors";
 import { runEvents } from "@/lib/hermes";
-import { miChatAsRunEvents } from "@/lib/mi-report";
+import {
+  DEFAULT_REPORT_PARAMS,
+  miChatAsRunEvents,
+  miGenerateReportAsRunEvents,
+} from "@/lib/mi-report";
 import { claim } from "@/lib/pending-runs";
 
 export const dynamic = "force-dynamic";
@@ -36,11 +40,18 @@ export async function GET(
       return new Response("Run not found or already streamed", { status: 404 });
     }
     try {
-      const stream = await miChatAsRunEvents(
-        runId,
-        { message: pendingRun.prompt, sessionId: pendingRun.sessionId },
-        req.signal,
-      );
+      const stream =
+        pendingRun.kind === "report"
+          ? await miGenerateReportAsRunEvents(
+              runId,
+              { ...DEFAULT_REPORT_PARAMS, period: pendingRun.prompt },
+              req.signal,
+            )
+          : await miChatAsRunEvents(
+              runId,
+              { message: pendingRun.prompt, sessionId: pendingRun.sessionId },
+              req.signal,
+            );
       return new Response(stream, { headers: SSE_HEADERS });
     } catch (err) {
       return errorResponse(err);

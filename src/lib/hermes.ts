@@ -43,6 +43,11 @@ export interface StartRunInput {
   history?: { role: string; content: string }[];
   /** Stable per-workspace id so hermes scopes its long-term memory correctly. */
   sessionId?: string;
+  /**
+   * Ephemeral system prompt for this run. Several workspaces share the
+   * `sales-agent` profile, and this is what points each at its own skill.
+   */
+  instructions?: string;
 }
 
 export interface StartRunResult {
@@ -57,6 +62,7 @@ export async function startRun(input: StartRunInput): Promise<StartRunResult> {
     body: JSON.stringify({
       input: input.input,
       model: input.model,
+      ...(input.instructions ? { instructions: input.instructions } : {}),
       ...(input.history?.length ? { conversation_history: input.history } : {}),
       ...(input.sessionId ? { session_id: input.sessionId } : {}),
     }),

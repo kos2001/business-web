@@ -1,12 +1,28 @@
 # business-web
 
-영업팀용 agent 웹 서비스. 세 개의 워크스페이스를 하나의 UI로 묶습니다.
+영업팀용 agent 웹 서비스. 워크스페이스를 **B2B 영업 프로세스 순서대로** 묶습니다.
 
-| 워크스페이스 | 백엔드 | 실체 |
-|---|---|---|
-| **MI 리포트** | `mi-report` FastAPI (`:8000`) | `~/gitspace/mi-report` — 코퍼스·검색·리포트가 이미 구현된 별도 앱 |
-| **계약서 분석** | hermes `contract-review` (`:8659`) | 이 작업에서 만든 전용 프로필 |
-| **고객관리** | hermes `agent-cowork` | 범용 프로필 (전용 프로필로 교체 예정) |
+| 단계 | 워크스페이스 | 백엔드 | 담당 스킬 |
+|---|---|---|---|
+| 조사 | **MI 리포트** | `mi-report` FastAPI (`:8000`) | 코퍼스 Q&A + 주간 리포트 생성 |
+| 조사 | **고객사 브리핑** | hermes `sales-agent` (`:8660`) | `account-brief` |
+| 영업 실행 | **미팅 정리** | hermes `sales-agent` | `discovery-notes`, `followup-email` |
+| 영업 실행 | **제안서** | hermes `sales-agent` | `proposal-outline` |
+| 계약 | **계약서 분석** | hermes `contract-review` (`:8659`) | 전용 SOUL.md |
+| 관리 | **딜·파이프라인** | hermes `sales-agent` | `deal-risk-review`, `pipeline-hygiene` |
+
+`customer-data-handling` 스킬은 `sales-agent`의 모든 작업에 항상 적용됩니다.
+
+### 왜 이 구성인가
+
+표준 B2B 영업 프로세스는 리드 발굴 → 검증·니즈 파악 → 제안·견적 → 협상·계약 →
+사후관리로 흐릅니다. 워크스페이스를 백엔드 모양이 아니라 이 순서로 배치한 이유는
+실제 일이 그 순서로 일어나기 때문입니다. 사이드바도 단계별로 묶여 있습니다.
+
+영업 실행 워크스페이스 네 개는 **하나의 hermes 프로필(`sales-agent`)** 위에서 돕니다.
+스킬·메모리·모델 설정을 한 곳에 두기 위해서이고, 각 워크스페이스가 자기 스킬을
+쓰도록 만드는 것은 `agents.ts`의 `instructions` 필드입니다 — hermes가 이를 run 단위
+임시 시스템 프롬프트로 받습니다.
 
 ## 오케스트레이션을 이 앱에 두지 않는 이유
 
@@ -23,7 +39,8 @@
 
 MI도 같은 이유로 재구현하지 않습니다. `mi-report`가 코퍼스 인제스트(Confluence,
 SEC EDGAR, DART, 한경, 뉴스), 하이브리드 검색, 근거 검증, LLM Wiki를 이미 갖고
-있으므로 이 앱은 그쪽 `/agent/chat/stream`을 프록시합니다.
+있으므로 이 앱은 그쪽을 프록시합니다 — 질문은 `/agent/chat/stream`, 주간 리포트
+작성은 `/report/generate/stream` + `/report/render`.
 
 ## 두 프로토콜, 하나의 UI
 
@@ -70,6 +87,9 @@ npm run dev                    # http://localhost:3100
 # hermes-gateway
 cd ~/gitspace/AIFde && uv run hermes-gateway
 
+# 영업 실행 프로필 (고객사 브리핑 · 미팅 정리 · 제안서 · 딜/파이프라인)
+sales-agent gateway run
+
 # 계약서 분석 프로필
 contract-review gateway run
 
@@ -92,9 +112,9 @@ Next.js route handlers  (src/app/api/**)
 
 | 파일 | 역할 |
 |---|---|
-| `src/lib/agents.ts` | 워크스페이스 ↔ 백엔드 매핑. **워크스페이스 추가는 이 파일만 고칩니다.** |
+| `src/lib/agents.ts` | 워크스페이스 ↔ 백엔드·스킬 매핑. **워크스페이스 추가는 이 파일만 고칩니다.** |
 | `src/lib/hermes.ts` | 서버 전용 게이트웨이 클라이언트. 키 보관, 업스트림 핀 고정 |
-| `src/lib/mi-report.ts` | mi-report 클라이언트 + 이벤트 번역 + 출처 렌더링 |
+| `src/lib/mi-report.ts` | mi-report 클라이언트 (코퍼스 Q&A + 주간 리포트) + 이벤트 번역 + 출처 렌더링 |
 | `src/lib/mi-sessions.ts` | 이 앱 세션 ↔ mi-report 세션 매핑 |
 | `src/lib/pending-runs.ts` | mi-report run의 POST↔events 사이 프롬프트 보관 |
 | `src/lib/staging.ts` | 업로드 파일 스테이징 (경로 살균, 확장자 허용목록, TTL 정리) |
@@ -123,10 +143,12 @@ Next.js route handlers  (src/app/api/**)
 
 - **로그인이 없습니다.** mi-report에는 전원이 `MI_REPORT_USER_ID` 하나의 세션·메모리
   스코프를 공유하며 들어갑니다. 다중 사용자 운영 전에 반드시 해결해야 합니다.
-- **고객관리는 `agent-cowork`(범용) 임시 매핑입니다.** 영업 전용 프로필이 필요합니다.
-  `~/gitspace/sales-agent-desktop`에 이미 영업 스킬 7종(account-brief, deal-risk-review,
-  discovery-notes, followup-email, pipeline-hygiene, proposal-outline,
-  customer-data-handling)이 번들돼 있으므로 그걸 프로필에 심는 것이 출발점입니다.
+- **MI 주간 리포트 생성이 간헐적으로 실패합니다.** mi-report 파이프라인 내부에서
+  `JSON 파싱 실패`가 납니다 (`backend/app/llm_json.py`). 모델이 구조화 출력 규약을
+  어길 때 발생하며 business-web 쪽 문제가 아닙니다 — 이 앱은 그 오류를 그대로
+  표면화합니다. 재시도로 넘어가는 경우가 있습니다.
+- **리드 발굴(prospecting)과 견적(quote) 워크스페이스가 없습니다.** 전자는 외부
+  데이터 소스, 후자는 가격 정책·승인 라인이 필요해 지금 붙일 근거가 없습니다.
 - **MI 워크스페이스는 승인 흐름을 지원하지 않습니다.** mi-report가 hermes의
   `approval.request`를 중계하지 않아, 승인이 필요한 도구는 에이전트가 우회합니다.
 - **대화가 서버에 저장되지 않습니다.** 새로고침하면 사라집니다. (mi-report는 자기

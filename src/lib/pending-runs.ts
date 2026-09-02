@@ -16,6 +16,8 @@
 export interface PendingRun {
   prompt: string;
   sessionId?: string;
+  /** "chat" answers a question; "report" runs the weekly-report pipeline. */
+  kind: "chat" | "report";
   createdAt: number;
 }
 
