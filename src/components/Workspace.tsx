@@ -386,7 +386,7 @@ export default function Workspace({
                 checked={protect}
                 onChange={(e) => setProtect(e.target.checked)}
               />
-              고객정보 보호 — 이메일·전화·주민번호·사업자번호를 전송 전에 마스킹
+              고객정보 보호 — 이메일·전화·주민번호·사업자번호·카드·API 키·IP를 전송 전에 마스킹
             </label>
           </div>
         </footer>
@@ -422,6 +422,8 @@ function describeRedaction(hits: Record<string, number>): string {
     rrn: "주민번호",
     bizno: "사업자번호",
     card: "카드번호",
+    secret: "API 키",
+    ip: "IP 주소",
   };
   return Object.entries(hits)
     .map(([k, n]) => `${names[k] ?? k} ${n}건`)
