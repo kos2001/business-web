@@ -12,14 +12,26 @@
  *   curl -s localhost:8700/v1/models -H "Authorization: Bearer $KEY"
  */
 
+/**
+ * Which service actually answers.
+ *
+ * "hermes"    — a hermes-agent api_server behind hermes-gateway.
+ * "mi-report" — the mi-report FastAPI app, which owns the MI corpus and its own
+ *               retrieval stack. Its stream is translated to hermes-shaped
+ *               events server-side (src/lib/mi-report.ts), so the UI sees one
+ *               protocol either way.
+ */
+export type Backend = "hermes" | "mi-report";
+
 export interface AgentDef {
   /** URL segment and stable key. */
   slug: string;
   label: string;
   blurb: string;
-  /** Gateway upstream name — pinned on every request of a run. */
+  backend: Backend;
+  /** Gateway upstream name — pinned on every request of a run. Hermes only. */
   upstream: string;
-  /** Model id sent in the run body. */
+  /** Model id sent in the run body. Hermes only. */
   model: string;
   /** Prompts offered as starting points in an empty workspace. */
   starters: string[];
@@ -29,31 +41,37 @@ export const AGENTS: AgentDef[] = [
   {
     slug: "mi-report",
     label: "MI 리포트",
-    blurb: "시장·경쟁사 동향을 조사해 보고서 초안까지 만듭니다.",
+    blurb: "수집된 코퍼스를 근거로 시장·경쟁사 동향에 답합니다.",
+    // Routed to the mi-report app, not the bare hermes profile: the corpus,
+    // retrieval and wiki all live there. `upstream`/`model` are the fallback
+    // used when that backend is unreachable.
+    backend: "mi-report",
     upstream: "mi-report",
     model: "mi-report",
     starters: [
-      "이번 분기 주요 경쟁사 동향을 정리해 줘.",
-      "고객사 A의 최근 공시와 뉴스를 근거로 MI 리포트 초안을 작성해 줘.",
-      "지난 리포트 대비 이번 달에 달라진 시장 신호만 추려 줘.",
+      "이번 주 수집된 문서에서 주목할 시장 신호를 정리해 줘.",
+      "경쟁사 최근 공시·뉴스에서 우리 영업에 영향 있는 내용만 추려 줘.",
+      "고객사 A 관련해 코퍼스에 뭐가 있는지 근거와 함께 알려 줘.",
     ],
   },
   {
     slug: "contract",
     label: "계약서 분석",
-    blurb: "계약서를 파싱해 조항·리스크를 근거와 함께 짚어 줍니다.",
-    upstream: "doc-parser",
-    model: "doc-parser",
+    blurb: "계약서를 조항 단위로 읽고 불리한 조항·누락 조항·협상 포인트를 짚어 줍니다.",
+    backend: "hermes",
+    upstream: "contract-review",
+    model: "contract-review",
     starters: [
-      "이 계약서에서 우리에게 불리한 조항을 인용과 함께 짚어 줘.",
-      "해지·손해배상·지연배상 조항을 표로 정리해 줘.",
-      "표준 계약서 대비 달라진 부분만 뽑아 줘.",
+      "첨부한 계약서를 을(자사) 관점에서 검토해 줘.",
+      "해지·손해배상·지연배상 조항만 심각도 순으로 정리해 줘.",
+      "있어야 하는데 빠진 조항이 뭔지 짚어 줘.",
     ],
   },
   {
     slug: "account",
     label: "고객관리",
     blurb: "미팅 노트·파이프라인을 정리하고 다음 액션을 제안합니다.",
+    backend: "hermes",
     upstream: "agent-cowork",
     model: "agent-cowork",
     starters: [

@@ -24,6 +24,13 @@ export async function POST(
   const agent = findAgent(String(body.agent ?? ""));
   if (!agent) return NextResponse.json({ error: "Unknown agent" }, { status: 404 });
 
+  if (agent.backend !== "hermes") {
+    return NextResponse.json(
+      { error: "이 백엔드는 승인 흐름을 지원하지 않습니다." },
+      { status: 400 },
+    );
+  }
+
   const choice = String(body.choice ?? "") as ApprovalChoice;
   if (!CHOICES.includes(choice)) {
     return NextResponse.json(

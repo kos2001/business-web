@@ -6,6 +6,8 @@ import { createSseParser, type RunEvent } from "@/lib/run-events";
 export interface Turn {
   role: "user" | "agent";
   text: string;
+  /** Names of files attached to this turn, for the transcript. */
+  files?: string[];
 }
 
 export interface ToolTrace {
@@ -19,6 +21,12 @@ export interface PendingApproval {
   runId: string;
   choices: string[];
   detail: Record<string, unknown>;
+}
+
+export interface Attachment {
+  path: string;
+  name: string;
+  bytes: number;
 }
 
 export type RunState = "idle" | "running" | "waiting_for_approval";
@@ -129,13 +137,25 @@ export function useRun(agent: string, sessionId: string) {
   );
 
   const send = useCallback(
-    async (input: string, protect: boolean) => {
-      if (state !== "idle" || !input.trim()) return;
+    async (input: string, protect: boolean, files: Attachment[] = []) => {
+      if (state !== "idle" || (!input.trim() && files.length === 0)) return;
       setError(null);
       setTools([]);
       setRedacted({});
-      setTurns((prev) => [...prev, { role: "user", text: input }]);
+      setTurns((prev) => [
+        ...prev,
+        { role: "user", text: input, files: files.map((f) => f.name) },
+      ]);
       setState("running");
+
+      // hermes rejects file content parts, but the agent reads paths off disk
+      // with read_file. Naming the staged paths is the whole upload mechanism.
+      // Appended after the user's words so the instruction stays the lead.
+      const prompt = files.length
+        ? `${input}\n\n첨부 파일 (경로로 직접 읽을 것):\n${files
+            .map((f) => `- ${f.path}`)
+            .join("\n")}`
+        : input;
 
       try {
         const res = await fetch("/api/runs", {
@@ -143,7 +163,7 @@ export function useRun(agent: string, sessionId: string) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             agent,
-            input,
+            input: prompt,
             protect,
             sessionId,
             history: turnsRef.current.map((t) => ({

@@ -1,17 +1,16 @@
 import { NextResponse } from "next/server";
 import { AGENTS } from "@/lib/agents";
 import { upstreamHealth } from "@/lib/hermes";
+import { miHealthy } from "@/lib/mi-report";
 
 export const dynamic = "force-dynamic";
 
-/** The roster plus live upstream status, so the nav can show what is reachable. */
+/** The roster plus live backend status, so the nav can show what is reachable. */
 export async function GET() {
-  let health: Record<string, string> = {};
-  try {
-    health = await upstreamHealth();
-  } catch {
-    // A gateway that is down should render a degraded nav, not a 500 page.
-  }
+  const [health, mi] = await Promise.all([
+    upstreamHealth().catch(() => ({}) as Record<string, string>),
+    miHealthy().catch(() => false),
+  ]);
 
   return NextResponse.json({
     agents: AGENTS.map((a) => ({
@@ -19,7 +18,12 @@ export async function GET() {
       label: a.label,
       blurb: a.blurb,
       starters: a.starters,
-      status: health[a.upstream] ?? "unknown",
+      status:
+        a.backend === "mi-report"
+          ? mi
+            ? "ok"
+            : "down"
+          : (health[a.upstream] ?? "unknown"),
     })),
   });
 }

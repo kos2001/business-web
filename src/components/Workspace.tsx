@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { useRun } from "./useRun";
+import { useRun, type Attachment } from "./useRun";
 
 interface NavItem {
   slug: string;
@@ -23,18 +23,23 @@ export default function Workspace({
   starters: string[];
   nav: NavItem[];
 }) {
-  // One stable session id per workspace per tab, so hermes scopes its
-  // long-term memory to this workspace rather than mixing all three.
-  const sessionId = useMemo(
-    () => `business-web:${slug}:${Math.random().toString(36).slice(2, 10)}`,
-    [slug],
-  );
+  // One session id per workspace per conversation. It scopes hermes's long-term
+  // memory and keys the server-side mi-report session mapping, so starting a new
+  // conversation has to mint a new one — clearing the transcript alone would
+  // leave the backend continuing the previous thread.
+  const [sessionId, setSessionId] = useState(() => newSessionId(slug));
+  useEffect(() => setSessionId(newSessionId(slug)), [slug]);
 
   const run = useRun(slug, sessionId);
   const [draft, setDraft] = useState("");
   const [protect, setProtect] = useState(true); // security review default
   const [health, setHealth] = useState<Record<string, string>>({});
+  const [files, setFiles] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/agents")
@@ -55,9 +60,32 @@ export default function Workspace({
 
   function submit() {
     const text = draft.trim();
-    if (!text || busy) return;
+    if ((!text && files.length === 0) || busy) return;
     setDraft("");
-    void run.send(text, protect);
+    setFiles([]);
+    void run.send(text || "첨부한 파일을 분석해 줘.", protect, files);
+  }
+
+  async function upload(list: FileList | null) {
+    if (!list?.length) return;
+    setUploadError(null);
+    setUploading(true);
+    try {
+      for (const file of Array.from(list)) {
+        const form = new FormData();
+        form.append("file", file);
+        form.append("sessionId", sessionId);
+        const res = await fetch("/api/upload", { method: "POST", body: form });
+        const body = (await res.json()) as Attachment & { error?: string };
+        if (!res.ok) throw new Error(body.error ?? `${file.name} 업로드 실패`);
+        setFiles((prev) => [...prev, body]);
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "업로드에 실패했습니다.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   }
 
   return (
@@ -98,7 +126,12 @@ export default function Workspace({
         </nav>
         <div className="mt-auto px-2 pt-4">
           <button
-            onClick={run.reset}
+            onClick={() => {
+              run.reset();
+              setFiles([]);
+              setUploadError(null);
+              setSessionId(newSessionId(slug));
+            }}
             className="w-full rounded-md border border-line px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas"
           >
             새 대화
@@ -112,7 +145,26 @@ export default function Workspace({
           <p className="truncate text-xs text-ink-soft">{blurb}</p>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5">
+        <div
+          className={`relative flex-1 overflow-y-auto px-6 py-5 ${
+            dragging ? "bg-accent/5" : ""
+          }`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            void upload(e.dataTransfer.files);
+          }}
+        >
+          {dragging && (
+            <div className="pointer-events-none absolute inset-4 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-accent bg-canvas/80 text-sm text-accent">
+              여기에 파일을 놓으세요
+            </div>
+          )}
           <div className="mx-auto flex max-w-3xl flex-col gap-4">
             {run.turns.length === 0 && !busy && (
               <div className="pt-8">
@@ -137,6 +189,11 @@ export default function Workspace({
                   <div className="rounded-2xl rounded-br-sm bg-accent px-3.5 py-2 text-sm text-white whitespace-pre-wrap">
                     {turn.text}
                   </div>
+                  {turn.files && turn.files.length > 0 && (
+                    <p className="mt-1 text-right text-xs text-ink-soft">
+                      첨부 {turn.files.join(", ")}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <article key={i} className="prose-agent max-w-none text-sm">
@@ -207,12 +264,55 @@ export default function Workspace({
 
         <footer className="border-t border-line bg-surface px-6 py-3">
           <div className="mx-auto max-w-3xl">
+            {files.length > 0 && (
+              <ul className="mb-2 flex flex-wrap gap-1.5">
+                {files.map((f) => (
+                  <li
+                    key={f.path}
+                    className="flex items-center gap-1.5 rounded-md border border-line bg-canvas px-2 py-1 text-xs"
+                  >
+                    <span className="max-w-56 truncate">{f.name}</span>
+                    <span className="text-ink-soft">{formatBytes(f.bytes)}</span>
+                    <button
+                      onClick={() =>
+                        setFiles((prev) => prev.filter((x) => x.path !== f.path))
+                      }
+                      aria-label={`${f.name} 첨부 제거`}
+                      className="text-ink-soft hover:text-ink"
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {uploadError && (
+              <p className="mb-1.5 text-xs text-red-700">{uploadError}</p>
+            )}
+
             {Object.keys(run.redacted).length > 0 && (
               <p className="mb-1.5 text-xs text-warn">
                 전송 전 마스킹: {describeRedaction(run.redacted)}
               </p>
             )}
             <div className="flex items-end gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                hidden
+                onChange={(e) => void upload(e.target.files)}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={busy || uploading}
+                title="파일 첨부"
+                aria-label="파일 첨부"
+                className="h-11 rounded-lg border border-line px-3 text-sm text-ink-soft hover:bg-canvas disabled:opacity-40"
+              >
+                {uploading ? "…" : "첨부"}
+              </button>
               <textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
@@ -237,7 +337,7 @@ export default function Workspace({
               ) : (
                 <button
                   onClick={submit}
-                  disabled={!draft.trim()}
+                  disabled={!draft.trim() && files.length === 0}
                   className="rounded-lg bg-accent px-3.5 py-2 text-sm font-medium text-white disabled:opacity-40"
                 >
                   보내기
@@ -257,6 +357,16 @@ export default function Workspace({
       </main>
     </div>
   );
+}
+
+function newSessionId(slug: string): string {
+  return `business-web:${slug}:${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n}B`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)}KB`;
+  return `${(n / 1024 / 1024).toFixed(1)}MB`;
 }
 
 function approvalLabel(choice: string): string {

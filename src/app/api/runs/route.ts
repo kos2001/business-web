@@ -1,7 +1,9 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { findAgent } from "@/lib/agents";
-import { startRun } from "@/lib/hermes";
 import { errorResponse } from "@/lib/api-errors";
+import { startRun } from "@/lib/hermes";
+import { reserve } from "@/lib/pending-runs";
 import { redact } from "@/lib/redact";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +39,20 @@ export async function POST(req: Request) {
   const protect = body.protect !== false;
   const { text, hits } = protect ? redact(raw) : { text: raw, hits: {} };
 
+  // mi-report streams its answer from the same request that starts it, so there
+  // is nothing to start here — reserve an id and let the events route drive it.
+  // See src/lib/pending-runs.ts for why the split exists at all.
+  if (agent.backend === "mi-report") {
+    const runId = `mi_${randomUUID().replace(/-/g, "")}`;
+    reserve(runId, { prompt: text, sessionId: body.sessionId });
+    return NextResponse.json({
+      run_id: runId,
+      status: "started",
+      agent: agent.slug,
+      redacted: hits,
+    });
+  }
+
   try {
     const run = await startRun({
       upstream: agent.upstream,
@@ -50,4 +66,3 @@ export async function POST(req: Request) {
     return errorResponse(err);
   }
 }
-
