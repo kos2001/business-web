@@ -103,6 +103,10 @@ export default function Sidebar({
               <button
                 onClick={() => toggle(s)}
                 aria-expanded={open}
+                // The domain names are the team's own shorthand; someone new to
+                // the app gets the plain sentence on hover rather than having
+                // to go back to the home board to find out what it covers.
+                title={meta.what}
                 className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-canvas"
               >
                 <span style={{ color: meta.color }}>

@@ -11,6 +11,7 @@
 | | 판매 실행관리 | `sales-execution-tracking` |
 | | 가격·마크업 | `pricing-strategy`, `markup-policy` |
 | | 판매회의·업무보고 | `sales-meeting-report` |
+| | 영업 현황진단 | `marketing-agent` (`:8012`) — 10개 에이전트 · 축자 인용 그라운딩 |
 | **신규수요 창출** | 신규수요 발굴 | `demand-generation`, `territory-prospecting` |
 | | Design-win·샘플 | `design-win-management`, `competitive-conversion`, `sample-management` |
 | | 판촉·딜등록 | `promotion-program`, `sales-code-registration` |
@@ -26,7 +27,6 @@
 | **고객 관리** | 고객 프로파일·내방 | `customer-profile`, `customer-visit-hosting`, `business-courtesy` |
 | | 분기 리뷰 (QBR) | `qbr-review` |
 | | MNC·해외법인 | `global-account-management`, `overseas-operations` |
-| | 영업 현황진단 | `marketing-agent` (`:8012`) — 10개 에이전트 · 축자 인용 그라운딩 |
 
 표시가 없는 워크스페이스는 전부 hermes `sales-agent` 프로필(`:8660`) 위에서 돕니다.
 `customer-data-handling` 스킬은 그 프로필의 모든 작업에 항상 적용되므로 어느
