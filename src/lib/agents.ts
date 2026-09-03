@@ -528,7 +528,12 @@ export const AGENTS: AgentDef[] = [
     slug: "diagnosis",
     label: "영업 현황진단",
     blurb: "실적 자료를 넣으면 채널별 진단·지표·전략 3축·Action Items를 인용과 함께 만듭니다.",
-    stage: "고객 관리",
+    // Sits in 판매전략, not 고객 관리: it reads performance data and comes back
+    // with channel diagnosis and strategy, which is the same job as the weekly
+    // sales meeting pack next to it. Grouping it under account management put a
+    // performance tool in with relationship work and left neither group
+    // coherent.
+    stage: "판매전략",
     // Routed to the marketing-agent harness. Ten agents with verbatim-quote
     // grounding already live there; `upstream`/`model` are unused for this
     // backend and kept only so the roster type stays uniform.
