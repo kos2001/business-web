@@ -4,20 +4,16 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useRun, type Attachment } from "./useRun";
-
-interface NavItem {
-  slug: string;
-  label: string;
-  stage: string;
-}
-
-/** Sales-cycle order. The nav reads top to bottom as the deal progresses. */
-const STAGE_ORDER = ["조사", "영업 실행", "계약", "관리"];
+import Sidebar, { type NavItem } from "./Sidebar";
+import StageIcon from "./StageIcon";
+import { STAGE_META } from "@/lib/stage-meta";
+import type { Stage } from "@/lib/agents";
 
 export default function Workspace({
   slug,
   label,
   blurb,
+  stage,
   starters,
   actions,
   nav,
@@ -25,6 +21,7 @@ export default function Workspace({
   slug: string;
   label: string;
   blurb: string;
+  stage: Stage;
   starters: string[];
   actions?: { id: "report"; label: string; hint: string }[];
   nav: NavItem[];
@@ -96,72 +93,45 @@ export default function Workspace({
 
   return (
     <div className="flex h-dvh">
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-surface px-3 py-4 sm:flex">
-        <div className="px-2 pb-4">
-          <p className="text-sm font-semibold">영업 에이전트</p>
-          <p className="mt-0.5 text-xs text-ink-soft">hermes-agent 백엔드</p>
-        </div>
-        <nav className="flex flex-col gap-3 overflow-y-auto">
-          {STAGE_ORDER.filter((stage) => nav.some((n) => n.stage === stage)).map(
-            (stage) => (
-              <div key={stage}>
-                <p className="px-2.5 pb-1 text-[11px] font-medium tracking-wide text-ink-soft/70">
-                  {stage}
-                </p>
-                <div className="flex flex-col gap-0.5">
-                  {nav
-                    .filter((item) => item.stage === stage)
-                    .map((item) => {
-                      const active = item.slug === slug;
-                      const status = health[item.slug];
-                      return (
-                        <Link
-                          key={item.slug}
-                          href={`/w/${item.slug}`}
-                          className={`flex items-center justify-between rounded-md px-2.5 py-2 text-sm ${
-                            active
-                              ? "bg-accent/10 font-medium text-accent"
-                              : "text-ink-soft hover:bg-canvas hover:text-ink"
-                          }`}
-                        >
-                          <span>{item.label}</span>
-                          <span
-                            aria-label={status === "ok" ? "정상" : "확인 필요"}
-                            className={`size-1.5 shrink-0 rounded-full ${
-                              status === "ok"
-                                ? "bg-emerald-500"
-                                : status
-                                  ? "bg-amber-500"
-                                  : "bg-line"
-                            }`}
-                          />
-                        </Link>
-                      );
-                    })}
-                </div>
-              </div>
-            ),
-          )}
-        </nav>
-        <div className="mt-auto px-2 pt-4">
-          <button
-            onClick={() => {
-              run.reset();
-              setFiles([]);
-              setUploadError(null);
-              setSessionId(newSessionId(slug));
-            }}
-            className="w-full rounded-md border border-line px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas"
-          >
-            새 대화
-          </button>
-        </div>
-      </aside>
+      <Sidebar
+        nav={nav}
+        slug={slug}
+        stage={stage}
+        health={health}
+        onReset={() => {
+          run.reset();
+          setFiles([]);
+          setUploadError(null);
+          setSessionId(newSessionId(slug));
+        }}
+      />
 
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-baseline gap-3 border-b border-line bg-surface px-6 py-3.5">
-          <h1 className="text-base font-semibold">{label}</h1>
-          <p className="truncate text-xs text-ink-soft">{blurb}</p>
+        <header className="flex items-center gap-3 border-b border-line bg-surface px-6 py-3">
+          <span
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg"
+            style={{
+              color: STAGE_META[stage].color,
+              backgroundColor: `color-mix(in srgb, ${STAGE_META[stage].color} 12%, transparent)`,
+            }}
+          >
+            <StageIcon stage={stage} className="size-4" />
+          </span>
+          <div className="min-w-0">
+            {/* On mobile the sidebar is hidden, so this is the only way back. */}
+            <Link
+              href="/"
+              className="text-[11px] text-ink-soft hover:text-accent sm:pointer-events-none"
+            >
+              {stage}
+            </Link>
+            <h1 className="truncate text-base font-semibold leading-tight">
+              {label}
+            </h1>
+          </div>
+          <p className="hidden min-w-0 flex-1 truncate text-xs text-ink-soft lg:block">
+            {blurb}
+          </p>
         </header>
 
         <div
@@ -203,16 +173,35 @@ export default function Workspace({
             )}
 
             {run.turns.length === 0 && !busy && (
-              <div className="pt-8">
-                <p className="text-sm text-ink-soft">이렇게 시작해 보세요</p>
-                <div className="mt-3 flex flex-col gap-2">
+              <div className="pt-6">
+                {/* What this workspace is, before what to type in it. Someone
+                    who arrived by clicking around needs the first sentence
+                    more than they need the examples. */}
+                <p className="text-sm leading-relaxed">{blurb}</p>
+                <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">
+                  아래 예시를 눌러 바로 시작하거나, 가진 자료를 붙여넣고 평소
+                  쓰는 말로 요청하세요. 파일은 아래 &lsquo;첨부&rsquo; 버튼이나
+                  화면에 끌어다 놓으면 됩니다.
+                </p>
+
+                <p className="mt-6 text-xs font-medium text-ink-soft">
+                  이렇게 시작해 보세요
+                </p>
+                <div className="mt-2 flex flex-col gap-2">
                   {starters.map((s) => (
                     <button
                       key={s}
                       onClick={() => void run.send(s, protect)}
-                      className="rounded-lg border border-line bg-surface px-3.5 py-2.5 text-left text-sm hover:border-accent hover:text-accent"
+                      className="group flex items-center gap-2.5 rounded-lg border border-line bg-surface px-3.5 py-2.5 text-left text-sm hover:border-accent"
+                      style={{ borderLeftColor: STAGE_META[stage].color, borderLeftWidth: 2.5 }}
                     >
-                      {s}
+                      <span className="flex-1 group-hover:text-accent">{s}</span>
+                      <span
+                        aria-hidden
+                        className="shrink-0 text-xs text-ink-soft/50 group-hover:text-accent"
+                      >
+                        →
+                      </span>
                     </button>
                   ))}
                 </div>
