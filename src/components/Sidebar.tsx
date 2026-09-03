@@ -48,6 +48,7 @@ export default function Sidebar({
   slug,
   stage,
   health,
+  recents,
   onReset,
 }: {
   nav: NavItem[];
@@ -56,6 +57,8 @@ export default function Sidebar({
   /** Absent on the home board — nothing is active, so nothing force-opens. */
   stage?: Stage;
   health: HealthMap;
+  /** Recently opened slugs, newest first. Fills the space below the domains. */
+  recents?: string[];
   /** Absent on the home board, which has no conversation to reset. */
   onReset?: () => void;
 }) {
@@ -95,6 +98,14 @@ export default function Sidebar({
     });
   }
 
+  // Resolved against the roster so a stale slug (a workspace that was removed)
+  // simply drops out rather than rendering a dead link.
+  const recentList = (recents ?? [])
+    .filter((s) => s !== slug)
+    .map((s) => nav.find((n) => n.slug === s))
+    .filter((n): n is NavItem => Boolean(n))
+    .slice(0, 5);
+
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-line bg-surface sm:flex">
       <Link
@@ -117,7 +128,8 @@ export default function Sidebar({
         </span>
       </Link>
 
-      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2.5 py-3">
+      <div className="flex flex-1 flex-col overflow-y-auto">
+      <nav className="flex flex-col gap-0.5 px-2.5 py-3">
         {STAGES.map((s) => {
           const meta = STAGE_META[s];
           const items = nav.filter((n) => n.stage === s);
@@ -215,6 +227,36 @@ export default function Sidebar({
           );
         })}
       </nav>
+      {/* The domains collapse, so most of the time the column below them is
+          empty. Twenty-three workspaces is enough that people return to the
+          same three or four, and this is exactly the space to put them in. The
+          current one is skipped — a link to where you already are is noise. */}
+      {recentList.length > 0 && (
+        <div className="mx-2.5 border-t border-line pt-3">
+          <p className="px-2 pb-1 text-[11px] font-medium text-ink-soft/70">
+            최근
+          </p>
+          <div className="flex flex-col gap-0.5">
+            {recentList.map((item) => (
+              <Link
+                key={item.slug}
+                href={`/w/${item.slug}`}
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-ink-soft hover:bg-canvas hover:text-ink"
+              >
+                <span
+                  aria-hidden
+                  className="shrink-0"
+                  style={{ color: STAGE_META[item.stage].color }}
+                >
+                  <StageIcon stage={item.stage} className="size-3.5" />
+                </span>
+                <span className="truncate">{item.label}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+      </div>
 
       <div className="border-t border-line p-2.5">
         {onReset && (
