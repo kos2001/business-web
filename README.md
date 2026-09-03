@@ -1,29 +1,68 @@
 # business-web
 
-영업팀용 agent 웹 서비스. 워크스페이스를 **B2B 영업 프로세스 순서대로** 묶습니다.
+영업팀용 agent 웹 서비스. 워크스페이스 23개를 **영업팀의 업무 영역 7개**로 묶습니다.
 
-| 단계 | 워크스페이스 | 백엔드 | 담당 스킬 |
-|---|---|---|---|
-| 조사 | **MI 리포트** | `mi-report` FastAPI (`:8000`) | 코퍼스 Q&A + 주간 리포트 생성 |
-| 조사 | **고객사 브리핑** | hermes `sales-agent` (`:8660`) | `account-brief` |
-| 영업 실행 | **미팅 정리** | hermes `sales-agent` | `discovery-notes`, `followup-email` |
-| 영업 실행 | **제안서** | hermes `sales-agent` | `proposal-outline` |
-| 계약 | **계약서 분석** | hermes `contract-review` (`:8659`) | 전용 SOUL.md |
-| 관리 | **영업 현황진단** | `marketing-agent` (`:8012`) | 10개 에이전트 · 축자 인용 그라운딩 |
-| 관리 | **딜·파이프라인** | hermes `sales-agent` | `deal-risk-review`, `pipeline-hygiene` |
+| 업무 영역 | 워크스페이스 | 담당 플레이북 |
+|---|---|---|
+| **시장·고객 조사** | MI 리포트 | `mi-report` FastAPI (`:8000`) — 코퍼스 Q&A + 주간 리포트 |
+| | 시황·시장규모 | `market-trend-brief`, `market-sizing` |
+| | 고객사 브리핑 | `account-brief` |
+| **판매전략** | 목표·판매계획 | `sales-target-setting`, `sales-plan` |
+| | 판매 실행관리 | `sales-execution-tracking` |
+| | 가격·마크업 | `pricing-strategy`, `markup-policy` |
+| | 판매회의·업무보고 | `sales-meeting-report` |
+| **신규수요 창출** | 신규수요 발굴 | `demand-generation`, `territory-prospecting` |
+| | Design-win·샘플 | `design-win-management`, `competitive-conversion`, `sample-management` |
+| | 판촉·딜등록 | `promotion-program`, `sales-code-registration` |
+| **딜 진행** | 미팅 정리 | `discovery-notes`, `followup-email`, `deal-qualification` |
+| | 제안서 | `proposal-outline` |
+| | 경쟁·반론 대응 | `competitive-battlecard`, `objection-handling` |
+| | 딜·파이프라인 | `deal-risk-review`, `pipeline-hygiene` |
+| **계약** | 계약서 분석 | hermes `contract-review` (`:8659`) — 전용 SOUL.md |
+| | 계약 운영 | `contract-operations` |
+| **물량·품질 운영** | 물량·재고 운용 | `supply-allocation`, `inventory-management`, `strategic-volume-ops` |
+| | 출하·물류 | `logistics-support` |
+| | 클레임·EOL·PCN | `rma-handling`, `eol-management`, `pcn-management` |
+| **고객 관리** | 고객 프로파일·내방 | `customer-profile`, `customer-visit-hosting`, `business-courtesy` |
+| | 분기 리뷰 (QBR) | `qbr-review` |
+| | MNC·해외법인 | `global-account-management`, `overseas-operations` |
+| | 영업 현황진단 | `marketing-agent` (`:8012`) — 10개 에이전트 · 축자 인용 그라운딩 |
 
-`customer-data-handling` 스킬은 `sales-agent`의 모든 작업에 항상 적용됩니다.
+표시가 없는 워크스페이스는 전부 hermes `sales-agent` 프로필(`:8660`) 위에서 돕니다.
+`customer-data-handling` 스킬은 그 프로필의 모든 작업에 항상 적용되므로 어느
+워크스페이스에도 배정하지 않습니다.
 
 ### 왜 이 구성인가
 
-표준 B2B 영업 프로세스는 리드 발굴 → 검증·니즈 파악 → 제안·견적 → 협상·계약 →
-사후관리로 흐릅니다. 워크스페이스를 백엔드 모양이 아니라 이 순서로 배치한 이유는
-실제 일이 그 순서로 일어나기 때문입니다. 사이드바도 단계별로 묶여 있습니다.
+이 팀은 신규 수주만 하는 팀이 아니라 **부품 유통·제조 영업팀**입니다. 딜을 따는 일
+옆에 판매계획과 목표 배분, 물량 배분과 재고, 마크업과 특가, Design-win 추적,
+단종(EOL)·제품변경(PCN)·클레임(RMA) 대응, 주간 판매회의 보고가 같은 비중으로 있습니다.
 
-영업 실행 워크스페이스 네 개는 **하나의 hermes 프로필(`sales-agent`)** 위에서 돕니다.
-스킬·메모리·모델 설정을 한 곳에 두기 위해서이고, 각 워크스페이스가 자기 스킬을
+이전 구성은 워크스페이스 7개를 일반 B2B 퍼널(조사 → 영업 실행 → 계약 → 관리)로
+묶었고, `sales-agent` 프로필에 시드된 플레이북 40개 중 **8개에만** 도달했습니다.
+나머지 32개는 설치돼 있는데 웹에서 부를 길이 없었습니다 — 딜 단계로 만든 네비게이션에는
+재고 운용이나 PCN 대응을 놓을 자리가 애초에 없기 때문입니다. 그래서 지금은 딜 단계가
+아니라 **업무 영역**으로 묶습니다.
+
+이 매핑이 조용히 깨지는 것을 막는 장치가 `src/lib/playbooks.ts`입니다. 없는 플레이북
+이름을 불러도 런타임 오류가 나지 않고 에이전트가 페르소나로 답해버려서 — 버그가 아니라
+그냥 답이 나빠진 것처럼 보입니다. 그래서 이름을 한 곳에 모아 두고 `agents.test.ts`가
+양방향으로 검증합니다: 워크스페이스가 부르는 이름이 전부 명세에 있는지, 명세의
+플레이북이 전부 어느 워크스페이스에서든 도달 가능한지.
+
+워크스페이스 대부분은 **하나의 hermes 프로필(`sales-agent`)** 위에서 돕니다.
+스킬·메모리·모델 설정을 한 곳에 두기 위해서이고, 각 워크스페이스가 자기 플레이북을
 쓰도록 만드는 것은 `agents.ts`의 `instructions` 필드입니다 — hermes가 이를 run 단위
 임시 시스템 프롬프트로 받습니다.
+
+### 화면
+
+읽는 사람 대부분이 비개발자라, 진입점은 **홈 보드**(`/`)입니다 — 업무 영역 7개와
+워크스페이스 23개를 각각 한 문장 설명과 실제 질문 예시와 함께 펼쳐 놓습니다.
+이전에는 `/`가 첫 워크스페이스로 리다이렉트해서, 앱이 무엇을 할 수 있는지 알 방법이
+없었습니다. 영역마다 색과 아이콘이 하나씩 있고 홈·사이드바·헤더에서 동일하게 쓰이므로
+(`src/lib/stage-meta.ts`), 목록을 읽지 않고 모양으로 찾아갈 수 있습니다. 사이드바 23개
+항목은 영역별로 접히며, 지금 있는 영역은 항상 펼쳐집니다.
 
 ## 오케스트레이션을 이 앱에 두지 않는 이유
 
