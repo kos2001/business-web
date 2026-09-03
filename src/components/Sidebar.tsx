@@ -34,16 +34,19 @@ export default function Sidebar({
   onReset,
 }: {
   nav: NavItem[];
-  slug: string;
-  stage: Stage;
+  /** Empty on the home board, where no workspace is open. */
+  slug?: string;
+  /** Absent on the home board — nothing is active, so nothing force-opens. */
+  stage?: Stage;
   health: Record<string, string>;
-  onReset: () => void;
+  /** Absent on the home board, which has no conversation to reset. */
+  onReset?: () => void;
 }) {
   // Deterministic first paint — server and client agree that only the active
   // domain is open. Anything read from localStorage has to land after mount or
   // React reports a hydration mismatch.
   const [closed, setClosed] = useState<string[]>(() =>
-    STAGES.filter((s) => s !== stage),
+    stage ? STAGES.filter((s) => s !== stage) : [...STAGES],
   );
 
   useEffect(() => {
@@ -57,7 +60,9 @@ export default function Sidebar({
 
   // The active domain is never left collapsed: arriving from the home board or
   // a link would otherwise show a nav with nothing highlighted in it.
-  useEffect(() => setClosed((prev) => prev.filter((s) => s !== stage)), [stage]);
+  useEffect(() => {
+    if (stage) setClosed((prev) => prev.filter((s) => s !== stage));
+  }, [stage]);
 
   function toggle(target: string) {
     setClosed((prev) => {
@@ -77,7 +82,10 @@ export default function Sidebar({
     <aside className="hidden w-64 shrink-0 flex-col border-r border-line bg-surface sm:flex">
       <Link
         href="/"
-        className="flex items-center gap-2 border-b border-line px-4 py-3.5 hover:bg-canvas"
+        aria-current={slug ? undefined : "page"}
+        className={`flex items-center gap-2 border-b border-line px-4 py-3.5 hover:bg-canvas ${
+          slug ? "" : "bg-canvas"
+        }`}
       >
         <span className="flex size-6 items-center justify-center rounded-md bg-accent text-[11px] font-bold text-white">
           영
@@ -186,14 +194,16 @@ export default function Sidebar({
         })}
       </nav>
 
-      <div className="border-t border-line p-2.5">
-        <button
-          onClick={onReset}
-          className="w-full rounded-md border border-line px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas"
-        >
-          새 대화 시작
-        </button>
-      </div>
+      {onReset && (
+        <div className="border-t border-line p-2.5">
+          <button
+            onClick={onReset}
+            className="w-full rounded-md border border-line px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas"
+          >
+            새 대화 시작
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useRun, type Attachment } from "./useRun";
@@ -34,7 +35,26 @@ export default function Workspace({
   useEffect(() => setSessionId(newSessionId(slug)), [slug]);
 
   const run = useRun(slug, sessionId);
-  const [draft, setDraft] = useState("");
+
+  // What the user typed on the home board, carried here as the opening draft so
+  // nothing has to be retyped. Left in the box rather than sent: they may have
+  // been describing the job to find the workspace, not writing the request.
+  const search = useSearchParams();
+  const [draft, setDraft] = useState(() => search.get("q") ?? "");
+
+  // Home pins the workspaces you actually use to the top; this is what tells it
+  // which those are.
+  useEffect(() => {
+    try {
+      const key = "business-web:recents";
+      const prev = JSON.parse(localStorage.getItem(key) ?? "[]") as string[];
+      const next = [slug, ...prev.filter((s) => s !== slug)].slice(0, 8);
+      localStorage.setItem(key, JSON.stringify(next));
+    } catch {
+      /* a workspace that cannot be remembered still opens */
+    }
+  }, [slug]);
+
   const [protect, setProtect] = useState(true); // security review default
   const [health, setHealth] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<Attachment[]>([]);
