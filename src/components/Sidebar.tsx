@@ -194,16 +194,22 @@ export default function Sidebar({
         })}
       </nav>
 
-      {onReset && (
-        <div className="border-t border-line p-2.5">
+      <div className="border-t border-line p-2.5">
+        {onReset && (
           <button
             onClick={onReset}
-            className="w-full rounded-md border border-line px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas"
+            className="mb-1.5 w-full rounded-md border border-line px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas"
           >
             새 대화 시작
           </button>
-        </div>
-      )}
+        )}
+        <Link
+          href="/settings/access"
+          className="block rounded-md px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas hover:text-ink"
+        >
+          접근 권한 설정
+        </Link>
+      </div>
     </aside>
   );
 }
