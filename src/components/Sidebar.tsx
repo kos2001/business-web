@@ -12,6 +12,23 @@ export interface NavItem {
   stage: Stage;
 }
 
+/**
+ * Per-workspace health.
+ *
+ * "degraded" is its own state on purpose. A workspace whose upstream answers
+ * but whose playbooks are not installed looks perfectly healthy from the
+ * outside while quietly producing worse answers — the agent cannot find the
+ * skill and falls back to its persona. Showing that as green would hide the
+ * exact failure this indicator exists to catch.
+ */
+export interface HealthEntry {
+  state: string;
+  /** Playbook names the agent could not see. Only set when degraded. */
+  missing?: string[];
+}
+
+export type HealthMap = Record<string, HealthEntry>;
+
 const STORE_KEY = "business-web:nav-collapsed";
 
 /**
@@ -38,7 +55,7 @@ export default function Sidebar({
   slug?: string;
   /** Absent on the home board — nothing is active, so nothing force-opens. */
   stage?: Stage;
-  health: Record<string, string>;
+  health: HealthMap;
   /** Absent on the home board, which has no conversation to reset. */
   onReset?: () => void;
 }) {
@@ -146,7 +163,8 @@ export default function Sidebar({
                 <div className="mb-1 flex flex-col gap-0.5 pl-2">
                   {items.map((item) => {
                     const active = item.slug === slug;
-                    const status = health[item.slug];
+                    const entry = health[item.slug];
+                    const state = entry?.state;
                     return (
                       <Link
                         key={item.slug}
@@ -170,18 +188,22 @@ export default function Sidebar({
                         <span className="flex-1 truncate">{item.label}</span>
                         <span
                           title={
-                            status === "ok"
+                            state === "ok"
                               ? "백엔드 정상"
-                              : status
-                                ? "백엔드 확인 필요"
-                                : "상태 확인 중"
+                              : state === "degraded"
+                                ? `플레이북 누락: ${entry?.missing?.join(", ")} — 에이전트가 스킬을 찾지 못해 답변 품질이 떨어집니다`
+                                : state
+                                  ? "백엔드 확인 필요"
+                                  : "상태 확인 중"
                           }
                           className={`size-1.5 shrink-0 rounded-full ${
-                            status === "ok"
+                            state === "ok"
                               ? "bg-emerald-500"
-                              : status
-                                ? "bg-amber-500"
-                                : "bg-line"
+                              : state === "degraded"
+                                ? "bg-orange-500"
+                                : state
+                                  ? "bg-amber-500"
+                                  : "bg-line"
                           }`}
                         />
                       </Link>
