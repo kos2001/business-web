@@ -7,6 +7,7 @@ import { STAGES, type Stage } from "@/lib/agents";
 import { STAGE_META } from "@/lib/stage-meta";
 import StageIcon from "./StageIcon";
 import Sidebar, { type HealthMap, type NavItem } from "./Sidebar";
+import { readRecents } from "@/lib/recents";
 
 export interface HomeAgent {
   slug: string;
@@ -17,8 +18,6 @@ export interface HomeAgent {
   /** Searched but not displayed — the vocabulary of the underlying playbook. */
   playbooks: readonly string[];
 }
-
-const RECENTS_KEY = "business-web:recents";
 
 /**
  * The home board.
@@ -46,14 +45,7 @@ export default function Home({ agents }: { agents: HomeAgent[] }) {
   const [health, setHealth] = useState<HealthMap>({});
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(RECENTS_KEY);
-      if (raw) setRecents(JSON.parse(raw) as string[]);
-    } catch {
-      /* no stored history is the normal first-visit case */
-    }
-  }, []);
+  useEffect(() => setRecents(readRecents()), []);
 
   useEffect(() => {
     fetch("/api/agents")
@@ -120,7 +112,7 @@ export default function Home({ agents }: { agents: HomeAgent[] }) {
 
   return (
     <div className="flex h-dvh">
-      <Sidebar nav={nav} health={health} />
+      <Sidebar nav={nav} health={health} recents={recents} />
 
       <main className="flex min-w-0 flex-1 flex-col overflow-y-auto">
         <div className="mx-auto w-full max-w-4xl px-6 py-10">
@@ -133,6 +125,20 @@ export default function Home({ agents }: { agents: HomeAgent[] }) {
           </p>
 
           <div className="relative mt-4">
+            <span
+              aria-hidden
+              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-soft/60"
+            >
+              <svg viewBox="0 0 20 20" fill="none" className="size-4">
+                <circle cx="9" cy="9" r="5.5" stroke="currentColor" strokeWidth="1.5" />
+                <path
+                  d="m13.5 13.5 3 3"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
             <input
               ref={inputRef}
               value={q}
@@ -143,8 +149,18 @@ export default function Home({ agents }: { agents: HomeAgent[] }) {
               }}
               placeholder="예) 단종 통지 받았는데 영향 고객 정리해 줘"
               aria-label="하려는 일 검색"
-              className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-accent"
+              className="w-full rounded-xl border border-line bg-surface py-3 pl-10 pr-16 text-sm outline-none transition-colors focus:border-accent"
             />
+            {/* Enter already opens the top match; saying so is the difference
+                between a search box and a box people retype into. */}
+            <kbd
+              aria-hidden
+              className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-line px-1.5 py-0.5 text-[10px] text-ink-soft transition-opacity ${
+                q.trim() && matches.length > 0 ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              Enter
+            </kbd>
             {q.trim() && (
               <div className="mt-2 overflow-hidden rounded-xl border border-line bg-surface">
                 {matches.length === 0 ? (
@@ -215,33 +231,51 @@ export default function Home({ agents }: { agents: HomeAgent[] }) {
                 const items = agents.filter((a) => a.stage === stage);
                 return (
                   <section key={stage}>
-                    <div className="flex items-baseline gap-2">
-                      <span style={{ color: meta.color }}>
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className="flex size-6 shrink-0 items-center justify-center rounded-md"
+                        style={{
+                          color: meta.color,
+                          backgroundColor: `color-mix(in srgb, ${meta.color} 11%, transparent)`,
+                        }}
+                      >
                         <StageIcon stage={stage} className="size-3.5" />
                       </span>
-                      <h2 className="text-sm font-semibold">{stage}</h2>
+                      <h2 className="shrink-0 text-sm font-semibold tracking-tight">
+                        {stage}
+                      </h2>
                       <p className="min-w-0 truncate text-xs text-ink-soft">
                         {meta.what}
                       </p>
+                      {/* A hairline that runs to the edge separates seven
+                          sections without seven heavy borders. */}
+                      <span
+                        aria-hidden
+                        className="h-px min-w-4 flex-1"
+                        style={{
+                          backgroundColor: `color-mix(in srgb, ${meta.color} 20%, transparent)`,
+                        }}
+                      />
                     </div>
                     <ul className="mt-2.5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {items.map((a) => (
                         <li key={a.slug}>
                           <Link
                             href={`/w/${a.slug}`}
-                            className="group flex h-full items-start gap-2.5 rounded-lg border border-line bg-surface p-3 hover:border-accent"
+                            className="group block h-full rounded-xl border border-line bg-surface p-3.5 pl-4 transition-all hover:-translate-y-px hover:shadow-[0_2px_8px_rgba(18,21,26,0.06)]"
+                            style={{
+                              borderLeftColor: meta.color,
+                              borderLeftWidth: 3,
+                            }}
                           >
                             <span
-                              className="mt-px size-1.5 shrink-0 rounded-full"
-                              style={{ backgroundColor: meta.color }}
-                            />
-                            <span className="min-w-0">
-                              <span className="block text-sm font-medium group-hover:text-accent">
-                                {a.label}
-                              </span>
-                              <span className="mt-0.5 block text-xs leading-relaxed text-ink-soft">
-                                {a.blurb}
-                              </span>
+                              className="block text-sm font-medium leading-tight"
+                              style={{ color: "var(--color-ink)" }}
+                            >
+                              {a.label}
+                            </span>
+                            <span className="mt-1 block text-xs leading-relaxed text-ink-soft">
+                              {a.blurb}
                             </span>
                           </Link>
                         </li>
