@@ -7,7 +7,12 @@ import {
   miGenerateReportAsRunEvents,
 } from "@/lib/mi-report";
 import { maDiagnoseAsRunEvents } from "@/lib/marketing-agent";
-import { claim } from "@/lib/pending-runs";
+import {
+  claimForStart,
+  isKnown,
+  replay,
+  startRecording,
+} from "@/lib/pending-runs";
 
 export const dynamic = "force-dynamic";
 
@@ -36,35 +41,48 @@ export async function GET(
   if (!agent) return new Response("Unknown agent", { status: 404 });
 
   if (agent.backend !== "hermes") {
-    const pendingRun = claim(runId);
-    if (!pendingRun) {
-      return new Response("Run not found or already streamed", { status: 404 });
-    }
-    try {
-      let stream: ReadableStream<Uint8Array>;
-      if (pendingRun.kind === "diagnose") {
-        stream = await maDiagnoseAsRunEvents(
-          runId,
-          { text: pendingRun.prompt },
-          req.signal,
-        );
-      } else if (pendingRun.kind === "report") {
-        stream = await miGenerateReportAsRunEvents(
-          runId,
-          { ...DEFAULT_REPORT_PARAMS, period: pendingRun.prompt },
-          req.signal,
-        );
-      } else {
-        stream = await miChatAsRunEvents(
-          runId,
-          { message: pendingRun.prompt, sessionId: pendingRun.sessionId },
-          req.signal,
-        );
+    // Start the backend at most once per run. A second request — StrictMode's
+    // double effect, a refresh, a reconnect — falls through to replay rather
+    // than kicking off another minutes-long pipeline. See pending-runs.ts.
+    const pendingRun = claimForStart(runId);
+
+    if (pendingRun) {
+      try {
+        let source: ReadableStream<Uint8Array>;
+        // Deliberately not passing `req.signal`: the recording must outlive the
+        // request that started it, or closing the tab kills the run.
+        if (pendingRun.kind === "diagnose") {
+          source = await maDiagnoseAsRunEvents(runId, {
+            text: pendingRun.prompt,
+          });
+        } else if (pendingRun.kind === "report") {
+          source = await miGenerateReportAsRunEvents(runId, {
+            ...DEFAULT_REPORT_PARAMS,
+            period: pendingRun.prompt,
+          });
+        } else {
+          source = await miChatAsRunEvents(runId, {
+            message: pendingRun.prompt,
+            sessionId: pendingRun.sessionId,
+          });
+        }
+        startRecording(runId, source);
+      } catch (err) {
+        return errorResponse(err);
       }
-      return new Response(stream, { headers: SSE_HEADERS });
-    } catch (err) {
-      return errorResponse(err);
+    } else if (!isKnown(runId)) {
+      return new Response(
+        "실행을 찾을 수 없습니다. 만료되었거나 서버가 재시작되었습니다. 다시 요청해 주세요.",
+        { status: 404 },
+      );
     }
+
+    // Every reader, first or fifth, goes through the recording.
+    const stream = replay(runId, req.signal);
+    if (!stream) {
+      return new Response("실행 기록을 찾을 수 없습니다.", { status: 404 });
+    }
+    return new Response(stream, { headers: SSE_HEADERS });
   }
 
   try {
