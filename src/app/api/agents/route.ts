@@ -1,17 +1,32 @@
 import { NextResponse } from "next/server";
 import { AGENTS } from "@/lib/agents";
-import { upstreamHealth } from "@/lib/hermes";
+import { listSkills, upstreamHealth } from "@/lib/hermes";
 import { maHealthy } from "@/lib/marketing-agent";
+import { missingPlaybooks } from "@/lib/playbook-health";
 import { miHealthy } from "@/lib/mi-report";
 
 export const dynamic = "force-dynamic";
 
-/** The roster plus live backend status, so the nav can show what is reachable. */
+/**
+ * The roster plus live backend status, so the nav can show what is reachable.
+ *
+ * "Reachable" covers two different things, and conflating them hides real
+ * breakage. An upstream can answer its health check while the playbooks its
+ * workspaces name are not installed — that is not a hypothetical: 33 of 40 were
+ * missing at one point and every workspace still showed healthy, because the
+ * agent silently answers from its persona when it cannot find a skill. So the
+ * playbooks are checked separately and reported per workspace.
+ */
 export async function GET() {
-  const [health, mi, ma] = await Promise.all([
+  const hermesUpstreams = [
+    ...new Set(AGENTS.filter((a) => a.backend === "hermes").map((a) => a.upstream)),
+  ];
+
+  const [health, mi, ma, skillsByUpstream] = await Promise.all([
     upstreamHealth().catch(() => ({}) as Record<string, string>),
     miHealthy().catch(() => false),
     maHealthy().catch(() => false),
+    skillsFor(hermesUpstreams),
   ]);
 
   const proxied: Record<string, boolean> = {
@@ -32,6 +47,31 @@ export async function GET() {
           : proxied[a.backend]
             ? "ok"
             : "down",
+      // Absent (rather than empty) when the skill list could not be read, so
+      // the UI can tell "nothing missing" from "could not check".
+      missingPlaybooks: missingPlaybooks(
+        a.playbooks,
+        skillsByUpstream[a.upstream],
+      ),
     })),
   });
 }
+
+/** Skill names per upstream. An upstream that fails to answer is omitted. */
+async function skillsFor(
+  upstreams: string[],
+): Promise<Record<string, Set<string>>> {
+  const entries = await Promise.all(
+    upstreams.map(async (u) => {
+      try {
+        return [u, await listSkills(u)] as const;
+      } catch {
+        return [u, null] as const;
+      }
+    }),
+  );
+  return Object.fromEntries(
+    entries.filter((e): e is readonly [string, Set<string>] => e[1] !== null),
+  );
+}
+

@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { STAGES, type Stage } from "@/lib/agents";
 import { STAGE_META } from "@/lib/stage-meta";
 import StageIcon from "./StageIcon";
-import Sidebar, { type NavItem } from "./Sidebar";
+import Sidebar, { type HealthMap, type NavItem } from "./Sidebar";
 
 export interface HomeAgent {
   slug: string;
@@ -43,7 +43,7 @@ export default function Home({ agents }: { agents: HomeAgent[] }) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [recents, setRecents] = useState<string[]>([]);
-  const [health, setHealth] = useState<Record<string, string>>({});
+  const [health, setHealth] = useState<HealthMap>({});
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -58,10 +58,28 @@ export default function Home({ agents }: { agents: HomeAgent[] }) {
   useEffect(() => {
     fetch("/api/agents")
       .then((r) => r.json())
-      .then((b: { agents?: { slug: string; status: string }[] }) =>
-        setHealth(
-          Object.fromEntries((b.agents ?? []).map((a) => [a.slug, a.status])),
-        ),
+      .then(
+        (b: {
+          agents?: {
+            slug: string;
+            status: string;
+            missingPlaybooks?: string[];
+          }[];
+        }) =>
+          setHealth(
+            Object.fromEntries(
+              (b.agents ?? []).map((a) => [
+                a.slug,
+                // A workspace whose backend answers but whose playbooks are not
+                // installed is not healthy — the agent quietly answers from its
+                // persona instead. Folding that into one status keeps the nav
+                // honest without adding a second indicator to every row.
+                a.status === "ok" && a.missingPlaybooks?.length
+                  ? { state: "degraded" as const, missing: a.missingPlaybooks }
+                  : { state: a.status },
+              ]),
+            ),
+          ),
       )
       .catch(() => undefined);
   }, []);
@@ -94,7 +112,11 @@ export default function Home({ agents }: { agents: HomeAgent[] }) {
     .filter((a): a is HomeAgent => Boolean(a))
     .slice(0, 4);
 
-  const down = agents.filter((a) => health[a.slug] === "down");
+  const down = agents.filter((a) => health[a.slug]?.state === "down");
+  // Degraded is called out separately: the backend is up, so "점검 필요" would
+  // send someone looking in the wrong place. What is actually wrong is that the
+  // playbooks are not installed.
+  const degraded = agents.filter((a) => health[a.slug]?.state === "degraded");
 
   return (
     <div className="flex h-dvh">
@@ -236,6 +258,12 @@ export default function Home({ agents }: { agents: HomeAgent[] }) {
               전송 전 고객정보 자동 마스킹 — 이메일 · 전화 · 주민번호 · 사업자번호
               · 카드번호
             </span>
+            {degraded.length > 0 && (
+              <p className="mt-2 text-xs text-orange-700">
+                플레이북 누락: {degraded.map((a) => a.label).join(", ")} — 에이전트가
+                스킬을 찾지 못해 답변 품질이 떨어집니다.
+              </p>
+            )}
             {down.length > 0 && (
               <span className="text-warn">
                 점검 필요: {down.map((a) => a.label).join(", ")}

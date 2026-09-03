@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useRun, type Attachment } from "./useRun";
-import Sidebar, { type NavItem } from "./Sidebar";
+import Sidebar, { type HealthMap, type NavItem } from "./Sidebar";
 import StageIcon from "./StageIcon";
 import { STAGE_META } from "@/lib/stage-meta";
 import type { Stage } from "@/lib/agents";
@@ -56,7 +56,7 @@ export default function Workspace({
   }, [slug]);
 
   const [protect, setProtect] = useState(true); // security review default
-  const [health, setHealth] = useState<Record<string, string>>({});
+  const [health, setHealth] = useState<HealthMap>({});
   const [files, setFiles] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -67,10 +67,28 @@ export default function Workspace({
   useEffect(() => {
     fetch("/api/agents")
       .then((r) => r.json())
-      .then((b: { agents?: { slug: string; status: string }[] }) =>
-        setHealth(
-          Object.fromEntries((b.agents ?? []).map((a) => [a.slug, a.status])),
-        ),
+      .then(
+        (b: {
+          agents?: {
+            slug: string;
+            status: string;
+            missingPlaybooks?: string[];
+          }[];
+        }) =>
+          setHealth(
+            Object.fromEntries(
+              (b.agents ?? []).map((a) => [
+                a.slug,
+                // A workspace whose backend answers but whose playbooks are not
+                // installed is not healthy — the agent quietly answers from its
+                // persona instead. Folding that into one status keeps the nav
+                // honest without adding a second indicator to every row.
+                a.status === "ok" && a.missingPlaybooks?.length
+                  ? { state: "degraded" as const, missing: a.missingPlaybooks }
+                  : { state: a.status },
+              ]),
+            ),
+          ),
       )
       .catch(() => undefined);
   }, []);

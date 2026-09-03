@@ -131,6 +131,36 @@ export async function upstreamHealth(): Promise<Record<string, string>> {
   );
 }
 
+/**
+ * The skill names an upstream can actually see.
+ *
+ * Workspaces point at playbooks by name (`src/lib/playbooks.ts`), and a name
+ * that no longer resolves fails silently: the agent cannot find the skill and
+ * answers from its persona instead, which reads as the model having an off day
+ * rather than as a broken install. This happened for real — 33 of 40 playbooks
+ * were missing from the profile while every workspace still reported healthy,
+ * because health only proved the upstream was reachable.
+ *
+ * Asking the agent what it can see is the right source of truth: it is the
+ * agent's own view, and it does not assume the profile lives on this machine
+ * the way reading `~/.hermes` would.
+ */
+export async function listSkills(upstream: string): Promise<Set<string>> {
+  const res = await fetch(`${BASE}/v1/skills`, {
+    headers: headers(upstream),
+    cache: "no-store",
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!res.ok) throw new HermesError(await describe(res), res.status);
+
+  const body = (await res.json()) as { data?: { name?: string }[] };
+  return new Set(
+    (body.data ?? [])
+      .map((s) => s.name)
+      .filter((n): n is string => typeof n === "string"),
+  );
+}
+
 export class HermesError extends Error {
   constructor(
     message: string,

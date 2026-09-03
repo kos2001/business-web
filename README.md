@@ -249,6 +249,27 @@ OIDC 디스커버리와 JWKS 조회는 Node 의 `fetch` 를 씁니다. TLS 를 �
   쓰이고 에이전트가 원본을 읽습니다. 마스킹은 프롬프트 텍스트에만 걸립니다.
   계약서에 담긴 개인정보는 그대로 모델에 전달됩니다.
 
+## 플레이북 설치 확인
+
+워크스페이스는 `sales-agent` 프로필의 플레이북을 **이름으로** 참조합니다
+(`src/lib/playbooks.ts`). 이름이 안 맞으면 빌드도 런타임도 실패하지 않습니다 —
+에이전트가 스킬을 못 찾고 페르소나로 답할 뿐이라, **모델 컨디션이 나쁜 것처럼
+보이는 조용한 품질 저하**가 됩니다. 실제로 40개 중 33개가 빠진 채 모든
+워크스페이스가 정상으로 표시된 적이 있습니다(health 는 업스트림 도달만 확인).
+
+그래서 `/api/agents` 가 에이전트의 `GET /v1/skills` 를 읽어 워크스페이스별로
+누락 플레이북을 보고하고, 사이드바 점이 **주황색(degraded)** 으로 바뀝니다.
+"확인 불가"와 "누락 없음"은 구분합니다 — 전자를 정상으로 그리는 것이 애초에
+문제를 감춘 방식이라서입니다 (`src/lib/playbook-health.ts`).
+
+플레이북은 `sales-agent-desktop` 번들이 원본입니다. 누락이 보이면:
+
+```sh
+cp -R ~/gitspace/sales-agent-desktop/resources/sales-skills/sales/. \
+      ~/.hermes/profiles/sales-agent/skills/sales/
+hermes -p sales-agent gateway restart
+```
+
 ## 알려진 한계
 
 - **mi-report 세션이 여전히 한 스코프를 공유합니다.** 로그인은 붙었지만(위 SSO 절),
