@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { STAGES, type Stage } from "@/lib/agents";
 import { STAGE_META } from "@/lib/stage-meta";
@@ -45,7 +45,19 @@ export default function Home({ agents }: { agents: HomeAgent[] }) {
   const [health, setHealth] = useState<HealthMap>({});
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // The workspace breadcrumb links back with ?stage=<domain>. Coming back to a
+  // 23-card board and having to find where you were is the moment the "page"
+  // illusion breaks, so the board scrolls to that domain and marks it.
+  const params = useSearchParams();
+  const fromStage = params.get("stage");
+
   useEffect(() => setRecents(readRecents()), []);
+
+  useEffect(() => {
+    if (!fromStage) return;
+    const el = document.getElementById(`stage-${fromStage}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [fromStage]);
 
   useEffect(() => {
     fetch("/api/agents")
@@ -114,15 +126,24 @@ export default function Home({ agents }: { agents: HomeAgent[] }) {
     <div className="flex h-dvh">
       <Sidebar nav={nav} health={health} recents={recents} />
 
-      <main className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-        <div className="mx-auto w-full max-w-4xl px-6 py-10">
-          <h1 className="text-xl font-semibold tracking-tight">
-            무엇을 도와드릴까요?
-          </h1>
-          <p className="mt-1.5 text-sm text-ink-soft">
-            하려는 일을 그대로 적어 보세요. 맞는 워크스페이스로 안내하고, 적은
-            내용은 첫 메시지로 그대로 넘어갑니다.
-          </p>
+      <main className="page-enter flex min-w-0 flex-1 flex-col overflow-y-auto">
+        {/* A banded hero. The home board and a workspace previously shared the
+            same chrome, background and layout, so opening a card read as a tab
+            changing rather than a page opening. Giving the landing page a
+            surface of its own is half of what makes the other feel like a
+            destination. */}
+        <div className="border-b border-line bg-surface">
+          <div className="mx-auto w-full max-w-4xl px-6 pb-8 pt-12">
+            <p className="text-xs font-medium tracking-wide text-ink-soft/70">
+              영업 에이전트
+            </p>
+            <h1 className="mt-1 text-[28px] font-semibold leading-tight tracking-tight">
+              무엇을 도와드릴까요?
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-soft">
+              하려는 일을 그대로 적어 보세요. 맞는 워크스페이스로 안내하고, 적은
+              내용은 첫 메시지로 그대로 넘어갑니다.
+            </p>
 
           <div className="relative mt-4">
             <span
@@ -224,13 +245,32 @@ export default function Home({ agents }: { agents: HomeAgent[] }) {
             </section>
           )}
 
+          </div>
+        </div>
+
+        <div className="mx-auto w-full max-w-4xl px-6 pb-12">
           {!q.trim() && (
-            <div className="mt-9 flex flex-col gap-7 border-t border-line pt-7">
+            <div className="mt-9 flex flex-col gap-7">
               {STAGES.map((stage) => {
                 const meta = STAGE_META[stage];
                 const items = agents.filter((a) => a.stage === stage);
+                const returning = stage === fromStage;
                 return (
-                  <section key={stage}>
+                  <section
+                    key={stage}
+                    id={`stage-${stage}`}
+                    className="scroll-mt-6 rounded-xl transition-colors"
+                    style={
+                      returning
+                        ? {
+                            // Just enough tint to answer "where was I?" without
+                            // turning into a permanent selected state.
+                            backgroundColor: `color-mix(in srgb, ${meta.color} 5%, transparent)`,
+                            boxShadow: `0 0 0 10px color-mix(in srgb, ${meta.color} 5%, transparent)`,
+                          }
+                        : undefined
+                    }
+                  >
                     <div className="flex items-center gap-2.5">
                       <span
                         className="flex size-6 shrink-0 items-center justify-center rounded-md"
@@ -262,17 +302,34 @@ export default function Home({ agents }: { agents: HomeAgent[] }) {
                         <li key={a.slug}>
                           <Link
                             href={`/w/${a.slug}`}
-                            className="group block h-full rounded-xl border border-line bg-surface p-3.5 pl-4 transition-all hover:-translate-y-px hover:shadow-[0_2px_8px_rgba(18,21,26,0.06)]"
+                            className="group flex h-full flex-col rounded-xl border border-line bg-surface p-3.5 pl-4 transition-all hover:-translate-y-0.5 hover:border-transparent hover:shadow-[0_4px_14px_rgba(18,21,26,0.10)]"
                             style={{
                               borderLeftColor: meta.color,
                               borderLeftWidth: 3,
                             }}
                           >
-                            <span
-                              className="block text-sm font-medium leading-tight"
-                              style={{ color: "var(--color-ink)" }}
-                            >
-                              {a.label}
+                            <span className="flex items-start gap-2">
+                              <span className="min-w-0 flex-1 text-sm font-medium leading-tight">
+                                {a.label}
+                              </span>
+                              {/* The card looked like a tile, not a link. A
+                                  chevron that slides on hover is the cheapest
+                                  way to say "this opens somewhere". */}
+                              <span
+                                aria-hidden
+                                className="mt-px shrink-0 opacity-0 transition-all duration-150 group-hover:translate-x-0.5 group-hover:opacity-100"
+                                style={{ color: meta.color }}
+                              >
+                                <svg viewBox="0 0 16 16" fill="none" className="size-3.5">
+                                  <path
+                                    d="m6 3.5 4.5 4.5L6 12.5"
+                                    stroke="currentColor"
+                                    strokeWidth="1.7"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              </span>
                             </span>
                             <span className="mt-1 block text-xs leading-relaxed text-ink-soft">
                               {a.blurb}
