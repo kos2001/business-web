@@ -141,12 +141,24 @@ mi-report는 자기 세션 ID(`mi-agent-<hex>`)를 발급하고 소유권을 검
 
 ## 실행
 
+프로필은 `~/.hermes` 에 살고 git 밖이라, **레포만 클론해서는 앱이 동작하지 않습니다.**
+프로필이 없으면 워크스페이스는 백엔드 없음으로, 플레이북이 없으면 "정상"으로 보이면서
+답변 품질만 조용히 떨어집니다. 그래서 셋업을 스크립트로 남겨 뒀습니다.
+
 ```sh
+./scripts/setup-hermes-profile.sh          # dry-run — 무엇을 할지 먼저 확인
+./scripts/setup-hermes-profile.sh --apply  # sales-agent 프로필 생성·SOUL.md·플레이북 40종
+
 cp .env.example .env.local     # HERMES_GATEWAY_KEY 채우기
 chmod 600 .env.local
 npm install
 npm run dev                    # http://localhost:3100
 ```
+
+스크립트는 멱등이고, 마지막에 **앱이 이름으로 부르는 플레이북이 실제로 깔렸는지**
+검증한 뒤 하나라도 없으면 종료 코드 1로 멈춥니다(`src/lib/playbooks.ts` 대조).
+`profiles/sales-agent/SOUL.md` 가 원본이므로 프로필 쪽을 직접 고치면 다음 실행에서
+덮입니다.
 
 의존 서비스:
 
@@ -154,8 +166,8 @@ npm run dev                    # http://localhost:3100
 # hermes-gateway
 cd ~/gitspace/AIFde && uv run hermes-gateway
 
-# 영업 실행 프로필 (고객사 브리핑 · 미팅 정리 · 제안서 · 딜/파이프라인)
-sales-agent gateway run
+# hermes 워크스페이스 20개의 백엔드 (setup 스크립트가 만든 프로필)
+hermes -p sales-agent gateway run
 
 # mi-report 백엔드
 cd ~/gitspace/mi-report/backend && .venv/bin/python -m uvicorn app.main:app --port 8000
