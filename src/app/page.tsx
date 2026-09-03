@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { AGENTS } from "@/lib/agents";
 import Home from "@/components/Home";
 
@@ -9,16 +10,21 @@ import Home from "@/components/Home";
  * roster.
  */
 export default function Page() {
+  // Home reads `?stage=` (the workspace breadcrumb links back with it), and
+  // Next requires a boundary around useSearchParams on a statically generated
+  // route — same reason /w/[agent] has one.
   return (
-    <Home
-      agents={AGENTS.map((a) => ({
-        slug: a.slug,
-        label: a.label,
-        blurb: a.blurb,
-        stage: a.stage,
-        starters: a.starters,
-        playbooks: a.playbooks,
-      }))}
-    />
+    <Suspense>
+      <Home
+        agents={AGENTS.map((a) => ({
+          slug: a.slug,
+          label: a.label,
+          blurb: a.blurb,
+          stage: a.stage,
+          starters: a.starters,
+          playbooks: a.playbooks,
+        }))}
+      />
+    </Suspense>
   );
 }

@@ -139,7 +139,7 @@ export default function Workspace({
         }}
       />
 
-      <main className="flex min-w-0 flex-1 flex-col">
+      <main key={slug} className="page-enter flex min-w-0 flex-1 flex-col">
         <header className="flex items-center gap-3 border-b border-line bg-surface px-6 py-3">
           <span
             className="flex size-8 shrink-0 items-center justify-center rounded-lg"
@@ -151,13 +151,28 @@ export default function Workspace({
             <StageIcon stage={stage} className="size-4" />
           </span>
           <div className="min-w-0">
-            {/* On mobile the sidebar is hidden, so this is the only way back. */}
-            <Link
-              href="/"
-              className="text-[11px] text-ink-soft hover:text-accent sm:pointer-events-none"
+            {/* A breadcrumb, not a label. Without a visible way back, arriving
+                here reads as a tab that changed rather than a page you opened —
+                and the previous version actively removed the way back by
+                disabling this link above `sm`. */}
+            <nav
+              aria-label="위치"
+              className="flex items-center gap-1 text-[11px] text-ink-soft"
             >
-              {stage}
-            </Link>
+              <Link href="/" className="hover:text-accent hover:underline">
+                전체 업무
+              </Link>
+              <span aria-hidden className="opacity-40">
+                /
+              </span>
+              <Link
+                href={`/?stage=${encodeURIComponent(stage)}`}
+                className="truncate hover:underline"
+                style={{ color: STAGE_META[stage].color }}
+              >
+                {stage}
+              </Link>
+            </nav>
             <h1 className="truncate text-base font-semibold leading-tight">
               {label}
             </h1>
