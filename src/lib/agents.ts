@@ -373,12 +373,18 @@ export const AGENTS: AgentDef[] = [
     slug: "contract",
     label: "계약서 분석",
     blurb: "계약서를 조항 단위로 읽고 불리한 조항·누락 조항·협상 포인트를 짚어 줍니다.",
+    ...SALES,
     stage: "계약",
-    // The one workspace on its own profile: `contract-review` has a dedicated
-    // SOUL.md tuned for clause-level reading, so it needs no `instructions`.
-    backend: "hermes",
-    upstream: "contract-review",
-    model: "contract-review",
+    // Was its own hermes profile with a dedicated SOUL.md. That profile ran a
+    // second process, port and credential for a single workspace, and said
+    // almost exactly what the shared `contract-review` playbook already says —
+    // the two had converged independently. Pointing this workspace at the
+    // shared profile the same way the other nineteen do produced an equivalent
+    // review on the same test contract, so the extra profile earned nothing.
+    instructions:
+      "`contract-review` 스킬을 읽고 그 규칙에 따라 답한다. 을(자사) 관점으로 " +
+      "검토하고, 모든 지적에 조항 번호와 원문 인용을 붙이며, 없어서 문제인 " +
+      "조항은 '누락'으로 따로 짚는다. 법률 자문이 아니라 협상 준비다.",
     playbooks: ["contract-review"],
     starters: [
       "첨부한 계약서를 을(자사) 관점에서 검토해 줘.",

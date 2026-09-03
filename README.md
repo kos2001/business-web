@@ -86,6 +86,21 @@ MI와 영업 현황진단도 같은 이유로 재구현하지 않습니다.
   바꾸는 10개 에이전트 하네스입니다. 축자 인용 그라운딩과 판단 보류 표기까지
   들어 있어 다시 만들면 반드시 더 나빠집니다 — `POST /sources` → `/pipeline/run`.
 
+## hermes 프로필을 하나만 쓰는 이유
+
+계약서 분석은 한때 전용 프로필(`contract-review`, `:8659`)을 따로 썼습니다. 워크스페이스
+하나를 위해 프로세스·포트·자격증명이 하나씩 더 필요했고, 그 프로필의 SOUL.md 는 공유
+번들의 `contract-review` 플레이북과 거의 같은 말을 하고 있었습니다 — 둘이 독립적으로
+같은 규율에 수렴했습니다. 같은 계약서로 양쪽을 돌려 결과가 동등한 것을 확인하고
+프로필을 내렸습니다.
+
+워크스페이스별 차이는 프로필이 아니라 `agents.ts` 의 `instructions` 가 만듭니다.
+hermes 가 이를 run 단위 임시 시스템 프롬프트로 받으므로, 새 워크스페이스를 추가할 때
+프로필을 새로 띄울 이유는 **모델이나 툴셋이 실제로 달라야 할 때뿐**입니다.
+
+(프로필 디렉터리 `~/.hermes/profiles/contract-review` 는 지우지 않고 남겨 뒀습니다.
+게이트웨이 등록만 해제된 상태입니다.)
+
 ## 세 백엔드, 하나의 프로토콜
 
 셋의 인터페이스가 전부 다릅니다:
@@ -141,9 +156,6 @@ cd ~/gitspace/AIFde && uv run hermes-gateway
 
 # 영업 실행 프로필 (고객사 브리핑 · 미팅 정리 · 제안서 · 딜/파이프라인)
 sales-agent gateway run
-
-# 계약서 분석 프로필
-contract-review gateway run
 
 # mi-report 백엔드
 cd ~/gitspace/mi-report/backend && .venv/bin/python -m uvicorn app.main:app --port 8000
