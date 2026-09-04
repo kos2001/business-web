@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>business-web 아키텍처</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600&family=Noto+Serif+KR:wght@400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f6f7f9; --paper-2:#ffffff; --ink:#12151a; --muted:#5b6472;
+    --soft:#8b93a1; --rule:rgba(18,21,26,.12); --rule-solid:#e3e7ed;
+    --accent:#2f5bd7; --accent-tint:rgba(47,91,215,.08); --link:#0e7490;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --paper:#12151a; --paper-2:#1b2029; --ink:#f6f7f9; --muted:#9aa3b2;
+      --soft:#6f7887; --rule:rgba(246,247,249,.12); --rule-solid:rgba(227,231,237,.25);
+      --accent:#6b90ec; --accent-tint:rgba(107,144,236,.12); --link:#3aa8bf;
+    }
+  }
+  html,body{margin:0;background:var(--paper);}
+  body{display:flex;justify-content:center;padding:32px 16px;}
+  svg{width:100%;max-width:960px;height:auto;}
+  .title{font-family:'Instrument Serif','Noto Serif KR',serif;font-size:28px;fill:var(--ink);}
+  .name{font-family:'Geist','Noto Sans KR','Apple SD Gothic Neo',sans-serif;font-size:12px;font-weight:600;fill:var(--ink);}
+  .sub{font-family:'Geist Mono',ui-monospace,monospace;font-size:9px;fill:var(--muted);}
+  .arrow{font-family:'Geist Mono',ui-monospace,monospace;font-size:8px;letter-spacing:.06em;fill:var(--muted);}
+  .eyebrow{font-family:'Geist Mono',ui-monospace,monospace;font-size:8px;font-weight:500;letter-spacing:.18em;fill:var(--soft);}
+  .note{font-family:'Instrument Serif','Noto Serif KR',serif;font-style:italic;font-size:14px;fill:var(--muted);}
+  .box{fill:var(--paper-2);stroke:var(--rule-solid);stroke-width:1;}
+  .focal{fill:var(--accent-tint);stroke:var(--accent);stroke-width:1.5;}
+  .conn{stroke:var(--muted);stroke-width:1.25;fill:none;}
+  .conn-accent{stroke:var(--accent);stroke-width:1.75;fill:none;}
+  .conn-link{stroke:var(--link);stroke-width:1.25;fill:none;}
+  .bound{fill:none;stroke:var(--rule);stroke-width:1;stroke-dasharray:4 4;}
+</style>
+</head>
+<body>
+<svg viewBox="0 0 960 600" role="img" aria-labelledby="t d">
+  <title id="t">business-web 아키텍처</title>
+  <desc id="d">브라우저에서 Next.js 라우트 핸들러를 거쳐 세 백엔드로 이어지는 구조. hermes 경로만 게이트웨이를 경유해 자격증명을 격리한다.</desc>
+
+  <defs>
+    <marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0 0 L8 4 L0 8 z" fill="var(--muted)"/>
+    </marker>
+    <marker id="aa" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0 0 L8 4 L0 8 z" fill="var(--accent)"/>
+    </marker>
+    <marker id="al" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0 0 L8 4 L0 8 z" fill="var(--link)"/>
+    </marker>
+  </defs>
+
+  <text class="title" x="40" y="56">business-web 아키텍처</text>
+  <text class="sub" x="40" y="76">영업 워크스페이스 25개 · 백엔드 3종 · 프로토콜 1종</text>
+
+  <!-- connections first: z-order puts them behind the boxes -->
+  <path class="conn" d="M180 148 L180 176" marker-end="url(#a)"/>
+  <path class="conn-accent" d="M150 244 L150 300" marker-end="url(#aa)"/>
+  <path class="conn-accent" d="M150 368 L150 424" marker-end="url(#aa)"/>
+  <path class="conn" d="M262 244 L420 300" marker-end="url(#a)"/>
+  <path class="conn" d="M310 244 L640 300" marker-end="url(#a)"/>
+  <path class="conn-link" d="M356 470 L272 470" marker-end="url(#al)"/>
+  <path class="conn" d="M630 226 L568 226 L568 470 L540 470" marker-end="url(#a)"/>
+
+  <!-- 트러스트 경계: 게이트웨이 안쪽은 프로필 키를 쥔다 -->
+  <rect class="bound" x="64" y="284" width="216" height="224" rx="8"/>
+  <rect x="76" y="276" width="126" height="14" fill="var(--paper)"/>
+  <text class="eyebrow" x="80" y="287">CREDENTIAL BOUNDARY</text>
+
+  <!-- 브라우저 -->
+  <rect class="box" x="96" y="100" width="168" height="48" rx="6"/>
+  <text class="name" x="112" y="122">브라우저</text>
+  <text class="sub" x="112" y="138">게이트웨이 키를 보지 않음</text>
+
+  <!-- Next.js -->
+  <rect class="box" x="72" y="176" width="216" height="68" rx="6"/>
+  <text class="name" x="88" y="200">Next.js route handlers</text>
+  <text class="sub" x="88" y="216">:3100 · 키 보관 · 마스킹 · 파싱</text>
+  <text class="sub" x="88" y="230">SSE 를 hermes 형태로 번역</text>
+
+  <!-- hermes-gateway (focal 1) -->
+  <rect class="focal" x="88" y="300" width="124" height="68" rx="6"/>
+  <text class="name" x="104" y="324">hermes-gateway</text>
+  <text class="sub" x="104" y="340">:8700</text>
+  <text class="sub" x="104" y="354">폐기 가능한 클라이언트 키</text>
+
+  <!-- sales-agent (focal 2) -->
+  <rect class="focal" x="88" y="424" width="168" height="68" rx="6"/>
+  <text class="name" x="104" y="448">hermes sales-agent</text>
+  <text class="sub" x="104" y="464">:8660 · 워크스페이스 20개</text>
+  <text class="sub" x="104" y="478">플레이북 42종</text>
+
+  <!-- mi-report -->
+  <rect class="box" x="356" y="300" width="184" height="68" rx="6"/>
+  <text class="name" x="372" y="324">mi-report</text>
+  <text class="sub" x="372" y="340">:8000 · 코퍼스 · 근거 검증</text>
+  <text class="sub" x="372" y="354">주간 리포트 파이프라인</text>
+
+  <!-- marketing-agent -->
+  <rect class="box" x="596" y="300" width="184" height="68" rx="6"/>
+  <text class="name" x="612" y="324">marketing-agent</text>
+  <text class="sub" x="612" y="340">:8012 · 에이전트 10종</text>
+  <text class="sub" x="612" y="354">축자 인용 그라운딩</text>
+
+  <!-- 문서 계층 -->
+  <rect class="box" x="356" y="436" width="184" height="68" rx="6"/>
+  <text class="name" x="372" y="460">docparser</text>
+  <text class="sub" x="372" y="476">업로드 파싱 → 스테이징</text>
+  <text class="sub" x="372" y="490">계약 선례 BM25 코퍼스</text>
+
+  <!-- arrow labels -->
+  <text class="arrow" x="192" y="168">HTTPS</text>
+  <text class="arrow" x="158" y="276">Bearer + X-Hermes-Upstream</text>
+  <text class="arrow" x="158" y="400">프로필 키</text>
+  <text class="arrow" x="330" y="268">직접 프록시</text>
+  <text class="arrow" x="286" y="462">read_file</text>
+  <text class="arrow" x="576" y="418">업로드 파싱</text>
+
+  <text class="note" x="40" y="556">게이트웨이를 거치는 이유는 라우팅이 아니라 격리다 — 앱은 프로필 키를 쥐지 않는다.</text>
+</svg>
+</body>
+</html>
