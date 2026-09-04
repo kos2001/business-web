@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/Users/kos2001/gitspace/marketing-agent/backend/.venv/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+	</dict>
+	<key>ExitTimeOut</key>
+	<integer>25</integer>
+	<key>KeepAlive</key>
+	<true/>
+	<key>Label</key>
+	<string>dev.businessweb.marketing-agent</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/kos2001/gitspace/marketing-agent/backend/.venv/bin/python</string>
+		<string>-m</string>
+		<string>uvicorn</string>
+		<string>app.main:app</string>
+		<string>--host</string>
+		<string>127.0.0.1</string>
+		<string>--port</string>
+		<string>8012</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/Users/kos2001/Library/Logs/business-web/marketing-agent.error.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/kos2001/Library/Logs/business-web/marketing-agent.log</string>
+	<key>ThrottleInterval</key>
+	<integer>30</integer>
+	<key>WorkingDirectory</key>
+	<string>/Users/kos2001/gitspace/marketing-agent/backend</string>
+</dict>
+</plist>

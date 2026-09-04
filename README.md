@@ -189,23 +189,37 @@ npm run dev                    # http://localhost:3100
 `profiles/sales-agent/SOUL.md` 가 원본이므로 프로필 쪽을 직접 고치면 다음 실행에서
 덮입니다.
 
-의존 서비스:
+### 의존 서비스 — launchd
+
+서비스 5종(웹 · hermes-gateway · sales-agent · mi-report · marketing-agent)은
+launchd LaunchAgent 로 등록해 로그인 시 뜨게 해 두었습니다. 일상적으로는 이 스크립트
+하나만 쓰면 됩니다.
 
 ```sh
-# hermes-gateway
-cd ~/gitspace/AIFde && uv run hermes-gateway
-
-# hermes 워크스페이스 20개의 백엔드 (setup 스크립트가 만든 프로필)
-hermes -p sales-agent gateway run
-
-# mi-report 백엔드
-cd ~/gitspace/mi-report/backend && .venv/bin/python -m uvicorn app.main:app --port 8000
-# 또는: cd ~/gitspace/mi-report && docker compose up
-
-# marketing-agent 백엔드 (영업 현황진단) — hermes marketing-agent 프로필(:8654) 필요
-hermes -p marketing-agent gateway run
-cd ~/gitspace/marketing-agent/backend && .venv/bin/python -m uvicorn app.main:app --port 8012
+./scripts/services.sh          # 상태
+./scripts/services.sh start    # 내려간 것만 올린다
+./scripts/services.sh restart  # 전부 재기동 (코드 변경 후)
+./scripts/services.sh logs     # 최근 오류 로그
 ```
+
+새 머신에서는 한 번만:
+
+```sh
+npm run build                                  # 웹은 빌드 산출물을 서빙한다
+hermes -p sales-agent gateway install          # hermes 가 자기 서비스를 등록
+./scripts/services.sh install                  # 나머지 넷
+./scripts/services.sh start
+```
+
+**KeepAlive 자동 재시작은 이 머신에서 동작하지 않습니다.** 프로세스를 죽여 실측한
+결과 launchd 가 죽음은 감지하지만(`state` 변경) 재시작을 시도하지 않습니다
+(`runs` 카운터 그대로). hermes 가 자체 설치한 서비스도 같았으므로 이 레포의 plist
+문제가 아니라 환경 조건입니다. 그래서 복구 수단은 `services.sh start` 이고,
+스크립트가 `launchctl kickstart` 를 감쌉니다.
+
+**웹은 빌드 산출물을 서빙합니다.** 코드를 고쳤으면 `npm run build` 후
+`./scripts/services.sh restart` 를 해야 반영됩니다 — 돌고 있는 서버는 새 빌드를
+스스로 집지 않습니다.
 
 검증 게이트: `npm run test && npm run typecheck && npm run build`
 
