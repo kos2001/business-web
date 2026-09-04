@@ -50,6 +50,9 @@ export function useRun(agent: string, sessionId: string) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [streaming, setStreaming] = useState("");
   const [tools, setTools] = useState<ToolTrace[]>([]);
+  // Kept after the run so the finished answer can still show what it was based
+  // on. Previously the trace was cleared and the evidence went with it.
+  const [startedAt, setStartedAt] = useState<number | undefined>(undefined);
   const [state, setState] = useState<RunState>("idle");
   const [approval, setApproval] = useState<PendingApproval | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -153,6 +156,7 @@ export function useRun(agent: string, sessionId: string) {
       setError(null);
       setTools([]);
       setRedacted({});
+      setStartedAt(Date.now());
       setTurns((prev) => [
         ...prev,
         { role: "user", text: input, files: files.map((f) => f.name) },
@@ -251,6 +255,7 @@ export function useRun(agent: string, sessionId: string) {
     setTurns([]);
     setStreaming("");
     setTools([]);
+    setStartedAt(undefined);
     setApproval(null);
     setError(null);
     setRedacted({});
@@ -261,6 +266,7 @@ export function useRun(agent: string, sessionId: string) {
     turns,
     streaming,
     tools,
+    startedAt,
     state,
     approval,
     error,
