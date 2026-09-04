@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useRun, type Attachment } from "./useRun";
 import Sidebar, { type HealthMap, type NavItem } from "./Sidebar";
 import StageIcon from "./StageIcon";
+import ActivityTrace from "./ActivityTrace";
 import { STAGE_META } from "@/lib/stage-meta";
 import { recordVisit } from "@/lib/recents";
 import type { Stage } from "@/lib/agents";
@@ -96,6 +97,11 @@ export default function Workspace({
 
   const busy = run.state !== "idle";
   const isEmpty = run.turns.length === 0 && !busy;
+  /** Index of the newest user turn — where this run's trace belongs. */
+  const lastUserTurn = run.turns.reduce(
+    (acc, t, i) => (t.role === "user" ? i : acc),
+    -1,
+  );
 
   function submit() {
     const text = draft.trim();
@@ -315,9 +321,10 @@ export default function Workspace({
               </div>
             )}
 
-            {run.turns.map((turn, i) =>
-              turn.role === "user" ? (
-                <div key={i} className="self-end max-w-[85%]">
+            {run.turns.map((turn, i) => (
+              <Fragment key={i}>
+              {turn.role === "user" ? (
+                <div className="self-end max-w-[85%]">
                   <div className="rounded-2xl rounded-br-sm bg-accent px-3.5 py-2 text-sm text-white whitespace-pre-wrap">
                     {turn.text}
                   </div>
@@ -332,32 +339,23 @@ export default function Workspace({
                 // clause tables, cited findings, action-item checklists. Bare
                 // text on the page background gives that nothing to sit on and
                 // no edge for a table to butt against.
-                <article
-                  key={i}
-                  className="prose-agent max-w-none rounded-xl border border-line bg-surface px-4 py-3.5 text-sm"
-                >
+                <article className="prose-agent max-w-none rounded-xl border border-line bg-surface px-4 py-3.5 text-sm">
                   <ReactMarkdown>{turn.text}</ReactMarkdown>
                 </article>
-              ),
-            )}
-
-            {run.tools.length > 0 && busy && (
-              <ul className="flex flex-col gap-1 border-l-2 border-line pl-3">
-                {run.tools.map((t, i) => (
-                  <li key={i} className="text-xs text-ink-soft">
-                    <span className={t.done ? "" : "animate-pulse"}>
-                      {t.done ? "✓" : "▸"} {t.tool}
-                    </span>
-                    {t.preview && (
-                      <span className="ml-1.5 opacity-70">{t.preview}</span>
-                    )}
-                    {t.duration !== undefined && (
-                      <span className="ml-1.5 opacity-60">{t.duration}s</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
+              )}
+              {/* The trace belongs with the turn it explains — between the
+                  question and the answer it produced, not after both. Anchored
+                  to the last user turn so a finished conversation reads in the
+                  order things actually happened. */}
+              {i === lastUserTurn && (
+                <ActivityTrace
+                  tools={run.tools}
+                  running={busy}
+                  startedAt={run.startedAt}
+                />
+              )}
+              </Fragment>
+            ))}
 
             {run.streaming && (
               <article className="prose-agent max-w-none rounded-xl border border-line bg-surface px-4 py-3.5 text-sm">
@@ -367,12 +365,37 @@ export default function Workspace({
 
             {run.approval && (
               <div className="rounded-lg border border-warn/40 bg-warn/5 p-3.5">
-                <p className="text-sm font-medium text-warn">
-                  에이전트가 승인을 요청했습니다
-                </p>
-                <pre className="mt-2 max-h-40 overflow-auto rounded border border-line bg-surface p-2 text-xs">
-                  {JSON.stringify(run.approval.detail, null, 2)}
-                </pre>
+                <div className="flex items-start gap-2">
+                  <svg viewBox="0 0 16 16" className="mt-px size-4 shrink-0 text-warn" aria-hidden>
+                    <path
+                      d="M8 1.5 15 14H1L8 1.5Z M8 6v3.5 M8 11.6v.01"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-warn">
+                      진행하려면 승인이 필요합니다
+                    </p>
+                    {/* The payload carries `description` and `command`. Dumping
+                        the whole object made the reader parse JSON to answer a
+                        yes/no question — and the two fields that decide it were
+                        buried among run ids and timestamps. */}
+                    {approvalDescription(run.approval.detail) && (
+                      <p className="mt-1 text-sm leading-relaxed">
+                        {approvalDescription(run.approval.detail)}
+                      </p>
+                    )}
+                    {approvalCommand(run.approval.detail) && (
+                      <pre className="mt-1.5 max-h-32 overflow-auto rounded-md border border-line bg-surface px-2 py-1.5 font-mono text-[11px] leading-relaxed">
+                        {approvalCommand(run.approval.detail)}
+                      </pre>
+                    )}
+                  </div>
+                </div>
                 <div className="mt-2.5 flex flex-wrap gap-2">
                   {run.approval.choices.map((c) => (
                     <button
@@ -578,6 +601,18 @@ function formatBytes(n: number): string {
   if (n < 1024) return `${n}B`;
   if (n < 1024 * 1024) return `${Math.round(n / 1024)}KB`;
   return `${(n / 1024 / 1024).toFixed(1)}MB`;
+}
+
+/** The one sentence that decides the answer, if the payload carries it. */
+function approvalDescription(detail: Record<string, unknown>): string {
+  const d = detail.description;
+  return typeof d === "string" ? d : "";
+}
+
+/** The exact command, so "이번만 허용" is an informed click and not a guess. */
+function approvalCommand(detail: Record<string, unknown>): string {
+  const c = detail.command;
+  return typeof c === "string" ? c : "";
 }
 
 function approvalLabel(choice: string): string {
