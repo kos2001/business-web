@@ -88,6 +88,12 @@ export interface AgentDef {
   /** Prompts offered as starting points in an empty workspace. */
   starters: string[];
   /**
+   * Whether this workspace searches the past-contract corpus before answering.
+   * Only the contract stage does: "what did we agree last time" is a question
+   * about precedent, and precedent is what the corpus holds.
+   */
+  corpus?: boolean;
+  /**
    * One-click jobs that are not a chat turn. Currently only mi-report has one:
    * its weekly-report pipeline, which is a different endpoint from chat.
    */
@@ -385,6 +391,7 @@ export const AGENTS: AgentDef[] = [
       "`contract-review` 스킬을 읽고 그 규칙에 따라 답한다. 을(자사) 관점으로 " +
       "검토하고, 모든 지적에 조항 번호와 원문 인용을 붙이며, 없어서 문제인 " +
       "조항은 '누락'으로 따로 짚는다. 법률 자문이 아니라 협상 준비다.",
+    corpus: true,
     playbooks: ["contract-review"],
     starters: [
       "첨부한 계약서를 을(자사) 관점에서 검토해 줘.",
@@ -406,6 +413,7 @@ export const AGENTS: AgentDef[] = [
       "최초안·1차 후퇴·최종선 세 단계로 만들고 숫자에는 반드시 근거를 붙인다. " +
       "근거를 못 대면 지어내지 말고 `근거 필요`로 남겨 사내 확인 사항에 올린다. " +
       "양보에는 항상 대가를 짝지어 제시한다.",
+    corpus: true,
     playbooks: ["contract-countermeasure"],
     starters: [
       "검토 결과를 바탕으로 협상 대책을 세워 줘. 필수·교환·수용으로 나눠서.",
@@ -425,6 +433,7 @@ export const AGENTS: AgentDef[] = [
       "모은다** — 초안의 숫자는 검토를 거치며 합의된 값처럼 굳는다. 책임 상한, " +
       "지연배상 상한, 검수 기준, IP 귀속, 준거법·분쟁해결은 기본으로 넣는다. " +
       "우리가 독소조항이라 부르는 것을 우리가 쓰지 않는다.",
+    corpus: true,
     playbooks: ["contract-drafting"],
     starters: [
       "합의한 조건으로 공급계약서 초안을 만들어 줘.",

@@ -18,6 +18,7 @@ export default function Workspace({
   stage,
   starters,
   actions,
+  corpus,
   nav,
 }: {
   slug: string;
@@ -26,6 +27,8 @@ export default function Workspace({
   stage: Stage;
   starters: string[];
   actions?: { id: "report"; label: string; hint: string }[];
+  /** Contract workspaces can file an upload as precedent. */
+  corpus?: boolean;
   nav: NavItem[];
 }) {
   // One session id per workspace per conversation. It scopes hermes's long-term
@@ -50,6 +53,7 @@ export default function Workspace({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [filing, setFiling] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -99,6 +103,29 @@ export default function Workspace({
     setDraft("");
     setFiles([]);
     void run.send(text || "첨부한 파일을 분석해 줘.", protect, files);
+  }
+
+  /**
+   * Files an already-uploaded contract into the corpus as precedent.
+   *
+   * Deliberate rather than automatic: every draft a rep opens should not
+   * silently become "what we agreed", or the corpus stops meaning anything.
+   */
+  async function fileAsPrecedent(f: Attachment) {
+    setFiling(f.path);
+    try {
+      const res = await fetch("/api/corpus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "ingest", path: f.path, name: f.name }),
+      });
+      const body = (await res.json()) as { message?: string; error?: string };
+      setUploadError(body.error ?? body.message ?? null);
+    } catch {
+      setUploadError("코퍼스 추가에 실패했습니다.");
+    } finally {
+      setFiling(null);
+    }
   }
 
   async function upload(list: FileList | null) {
@@ -397,6 +424,16 @@ export default function Workspace({
                       <span title={f.note} className="text-warn">
                         원본 전달
                       </span>
+                    )}
+                    {corpus && (
+                      <button
+                        onClick={() => void fileAsPrecedent(f)}
+                        disabled={filing === f.path}
+                        title="이 계약서를 선례 코퍼스에 추가합니다. 이후 다른 계약서를 검토할 때 비교 근거로 쓰입니다."
+                        className="text-accent hover:underline disabled:opacity-50"
+                      >
+                        {filing === f.path ? "추가 중…" : "선례로 추가"}
+                      </button>
                     )}
                     <button
                       onClick={() =>
