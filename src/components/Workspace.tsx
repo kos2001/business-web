@@ -385,6 +385,19 @@ export default function Workspace({
                   >
                     <span className="max-w-56 truncate">{f.name}</span>
                     <span className="text-ink-soft">{formatBytes(f.bytes)}</span>
+                    {f.parsed && (
+                      <span
+                        title="문서를 텍스트로 변환해 전달합니다 (표 구조 유지)"
+                        className="text-emerald-600"
+                      >
+                        변환됨
+                      </span>
+                    )}
+                    {f.note && (
+                      <span title={f.note} className="text-warn">
+                        원본 전달
+                      </span>
+                    )}
                     <button
                       onClick={() =>
                         setFiles((prev) => prev.filter((x) => x.path !== f.path))

@@ -17,9 +17,14 @@ PROFILE_DIR="$HOME/.hermes/profiles/$PROFILE"
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SOUL_SRC="$REPO_DIR/profiles/$PROFILE/SOUL.md"
 
-# 플레이북 원본. sales-agent-desktop 이 번들로 관리하므로 여기서 복제하지 않고
-# 참조한다 — 같은 파일이 두 곳에서 갈라지면 어느 쪽이 진짜인지 알 수 없게 된다.
+# 플레이북 원본은 두 곳이다.
+#  - 공유 번들: sales-agent-desktop 이 관리한다. 여기서 복제하지 않고 참조한다 —
+#    같은 파일이 두 곳에서 갈라지면 어느 쪽이 진짜인지 알 수 없게 된다.
+#  - 레포 자체: business-web 만 쓰는 플레이북. 데스크톱 앱에는 해당 워크스페이스가
+#    없으므로 그쪽 번들에 넣을 자리가 없고, 그렇다고 프로필에만 두면 git 밖으로
+#    새어 나간다. 레포 것이 번들 위에 덮인다.
 PLAYBOOK_SRC="${SALES_SKILLS_SRC:-$HOME/gitspace/sales-agent-desktop/resources/sales-skills/sales}"
+REPO_PLAYBOOKS="$REPO_DIR/profiles/$PROFILE/playbooks"
 
 APPLY=false
 [ "${1:-}" = "--apply" ] && APPLY=true
@@ -46,10 +51,14 @@ fi
 run cp "$SOUL_SRC" "$PROFILE_DIR/SOUL.md"
 
 # ── 3) 플레이북 ─────────────────────────────────────────────────────────────
-say "플레이북 $(find "$PLAYBOOK_SRC" -maxdepth 1 -mindepth 1 -type d | wc -l | tr -d ' ')종 설치: $PLAYBOOK_SRC → $PROFILE_DIR/skills/sales"
+bundled=$(find "$PLAYBOOK_SRC" -maxdepth 1 -mindepth 1 -type d | wc -l | tr -d ' ')
+local_pb=0
+[ -d "$REPO_PLAYBOOKS" ] && local_pb=$(find "$REPO_PLAYBOOKS" -maxdepth 1 -mindepth 1 -type d | wc -l | tr -d ' ')
+say "플레이북 설치: 공유 번들 ${bundled}종 + 레포 ${local_pb}종 → $PROFILE_DIR/skills/sales"
 if $APPLY; then
   mkdir -p "$PROFILE_DIR/skills/sales"
   cp -R "$PLAYBOOK_SRC"/. "$PROFILE_DIR/skills/sales"/
+  [ -d "$REPO_PLAYBOOKS" ] && cp -R "$REPO_PLAYBOOKS"/. "$PROFILE_DIR/skills/sales"/
   chmod -R go-rwx "$PROFILE_DIR/skills/sales"
 fi
 

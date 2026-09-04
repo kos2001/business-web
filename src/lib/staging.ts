@@ -69,8 +69,14 @@ export function extensionOf(filename: string): string {
 }
 
 export interface StagedFile {
-  /** Absolute path handed to the agent. */
+  /** Absolute path handed to the agent — the parsed sidecar when one exists. */
   path: string;
+  /** True when `path` points at parsed Markdown rather than the raw upload. */
+  parsed?: boolean;
+  /** Extra path worth naming in the prompt (e.g. extracted tables). */
+  extraPaths?: string[];
+  /** Why parsing was skipped or failed. Shown to the user. */
+  note?: string;
   /** Sanitised name, shown in the UI. */
   name: string;
   bytes: number;
