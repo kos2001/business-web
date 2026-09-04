@@ -8,6 +8,7 @@ import { useRun, type Attachment } from "./useRun";
 import Sidebar, { type HealthMap, type NavItem } from "./Sidebar";
 import StageIcon from "./StageIcon";
 import ActivityTrace from "./ActivityTrace";
+import CorpusPanel from "./CorpusPanel";
 import { STAGE_META } from "@/lib/stage-meta";
 import { recordVisit } from "@/lib/recents";
 import type { Stage } from "@/lib/agents";
@@ -55,6 +56,7 @@ export default function Workspace({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [filing, setFiling] = useState<string | null>(null);
+  const [corpusVersion, setCorpusVersion] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -127,6 +129,7 @@ export default function Workspace({
       });
       const body = (await res.json()) as { message?: string; error?: string };
       setUploadError(body.error ?? body.message ?? null);
+      if (res.ok) setCorpusVersion((v) => v + 1);
     } catch {
       setUploadError("코퍼스 추가에 실패했습니다.");
     } finally {
@@ -293,6 +296,12 @@ export default function Workspace({
                   말로 요청하세요. 파일은 아래 클립 아이콘을 누르거나 화면에
                   끌어다 놓으면 됩니다.
                 </p>
+
+                {corpus && (
+                  <div className="mt-4">
+                    <CorpusPanel reloadKey={corpusVersion} />
+                  </div>
+                )}
 
                 <div className="mt-5 flex flex-col gap-2">
                   {starters.map((s) => (
