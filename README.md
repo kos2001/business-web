@@ -211,13 +211,16 @@ cd ~/gitspace/marketing-agent/backend && .venv/bin/python -m uvicorn app.main:ap
 
 ## 구조
 
-```
-브라우저  (게이트웨이 키를 절대 보지 않음)
-   ▼
-Next.js route handlers  (src/app/api/**)
-   ├─ backend: "hermes"     → Bearer + X-Hermes-Upstream → hermes-gateway :8700
-   └─ backend: "mi-report"  → mi-report FastAPI :8000 → hermes 형태로 번역
-```
+[![business-web 아키텍처](docs/architecture.png)](docs/architecture.html)
+
+브라우저는 게이트웨이 키를 절대 보지 않습니다. hermes 경로만 게이트웨이를
+경유하는데, 이유는 라우팅이 아니라 **자격증명 격리**입니다 — 앱은 폐기 가능한
+클라이언트 키만 쥐고 프로필 키는 게이트웨이 안쪽에 남습니다.
+
+> 다이어그램 원본은 [`docs/architecture.html`](docs/architecture.html)
+> (자체 완결 HTML + 인라인 SVG, 라이트/다크 자동 전환). 앱과 같은 토큰을 쓰도록
+> [diagram-design](https://github.com/cathrynlavery/diagram-design) 스킬의
+> 스타일 가이드를 `globals.css` 의 `@theme` 값으로 커스터마이즈했습니다.
 
 | 파일 | 역할 |
 |---|---|
