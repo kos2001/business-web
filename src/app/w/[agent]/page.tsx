@@ -27,6 +27,7 @@ export default async function AgentPage({
         stage={agent.stage}
         starters={agent.starters}
         actions={agent.actions}
+      corpus={agent.corpus ?? false}
         nav={AGENTS.map((a) => ({
           slug: a.slug,
           label: a.label,

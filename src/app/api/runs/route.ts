@@ -5,6 +5,7 @@ import { errorResponse } from "@/lib/api-errors";
 import { startRun } from "@/lib/hermes";
 import { reserve } from "@/lib/pending-runs";
 import { redact } from "@/lib/redact";
+import { corpusIndexed, searchCorpus } from "@/lib/corpus";
 
 export const dynamic = "force-dynamic";
 
@@ -72,11 +73,29 @@ export async function POST(req: Request) {
     });
   }
 
+  // Contract work turns on precedent — what our standard says, what we agreed
+  // with this customer last time. Retrieving it here rather than asking the
+  // agent to search means the passages arrive with the question instead of
+  // depending on the model choosing to look, and the citations are exact.
+  let grounded = text;
+  if (agent.corpus && corpusIndexed()) {
+    const hits = await searchCorpus(text, 5).catch(() => []);
+    if (hits.length > 0) {
+      grounded =
+        `${text}\n\n[사내 계약 코퍼스 검색 결과 — 참고용 선례]\n` +
+        hits
+          .map((h) => `- (${h.document}) ${h.text}`)
+          .join("\n") +
+        "\n위 선례는 참고이고 지금 검토 대상 계약서가 아니다. " +
+        "인용할 때는 출처 문서명을 함께 밝힌다.";
+    }
+  }
+
   try {
     const run = await startRun({
       upstream: agent.upstream,
       model: agent.model,
-      input: text,
+      input: grounded,
       instructions: agent.instructions,
       history: body.history,
       sessionId: body.sessionId,
