@@ -27,6 +27,12 @@ export interface Attachment {
   path: string;
   name: string;
   bytes: number;
+  /** True when `path` is parsed Markdown rather than the raw upload. */
+  parsed?: boolean;
+  /** Extra files worth naming in the prompt (extracted tables). */
+  extraPaths?: string[];
+  /** Why parsing was skipped or failed. */
+  note?: string;
 }
 
 export type RunState = "idle" | "running" | "waiting_for_approval";
@@ -156,9 +162,15 @@ export function useRun(agent: string, sessionId: string) {
       // hermes rejects file content parts, but the agent reads paths off disk
       // with read_file. Naming the staged paths is the whole upload mechanism.
       // Appended after the user's words so the instruction stays the lead.
+      // Naming the parsed path and the tables separately matters: a review
+      // that never opens the table file is exactly how the numbers it is
+      // supposed to check go unchecked.
       const prompt = files.length
         ? `${input}\n\n첨부 파일 (경로로 직접 읽을 것):\n${files
-            .map((f) => `- ${f.path}`)
+            .flatMap((f) => [
+              `- ${f.path}${f.parsed ? `  (${f.name} 을 변환한 텍스트)` : ""}`,
+              ...(f.extraPaths ?? []).map((p) => `- ${p}  (${f.name} 의 표)`),
+            ])
             .join("\n")}`
         : input;
 

@@ -127,12 +127,24 @@ marketing-agent는 SSE가 없어 UI가 수 분간 죽어 보이므로, 어댑터
 업스트림으로 가고, 그쪽은 그 `run_id`를 몰라 404 `run_not_found`를 냅니다.
 라이브 게이트웨이에서 재현 확인했습니다. `src/lib/hermes.ts`가 강제합니다.
 
-**2. 파일 업로드는 경로 전달 방식입니다.**
+**2. 파일 업로드는 경로 전달 방식이고, 파싱은 업로드 시점에 합니다.**
 hermes `/v1/runs`는 `file`/`input_file` 파트를 거부합니다 — 텍스트와 이미지만 받습니다.
 대신 에이전트가 `read_file` 툴로 디스크를 읽을 수 있으므로, 업로드는
 `~/.hermes/business-web-staging/<session>/`에 쓰고 그 절대경로를 프롬프트에
 적어 넘깁니다. **웹 서버와 hermes 에이전트가 같은 파일시스템을 공유해야 동작합니다.**
-서버를 분리하면 `src/lib/staging.ts`가 바뀌어야 합니다.
+
+`.docx`·`.pptx`·`.html` 은 업로드 시점에 `~/gitspace/docparser` 로 Markdown 으로
+변환하고, `.docx` 는 표를 JSON 으로 따로 뽑아 함께 넘깁니다 (`src/lib/docparse.ts`).
+**에이전트 툴이 아니라 여기서 파싱하는 이유**는 이 배포판이 사내 hardened hermes
+("a2g/dtgpt only, **no MCP**")라 docparser 의 MCP 툴이 에이전트에 닿지 않기
+때문입니다 — 프로필 `config.yaml` 에 `mcp_servers.docparser` 가 있어도 무시됩니다.
+결과적으로 파싱이 결정적이고, 대화 열 턴에 한 번만 돌며, 계약서의 단가표·수량
+약정 같은 표가 구조를 유지한 채 전달됩니다.
+
+변환에 실패하면 원본 경로를 그대로 넘기고 UI 에 "원본 전달"로 표시합니다 —
+업로드 자체는 절대 실패시키지 않습니다. (현재 PDF 변환은 docparser 환경에
+`markitdown[pdf]` 가 없어 폴백됩니다. `read_file` 이 PDF 텍스트 레이어를 읽으므로
+동작에는 지장이 없습니다.)
 
 **3. mi-report의 세션 ID를 직접 만들면 안 됩니다.**
 mi-report는 자기 세션 ID(`mi-agent-<hex>`)를 발급하고 소유권을 검증합니다. 이 앱의

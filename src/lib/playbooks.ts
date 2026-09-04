@@ -63,7 +63,12 @@ export const PLAYBOOKS_BY_DOMAIN = {
     "deal-risk-review",
     "pipeline-hygiene",
   ],
-  계약: ["contract-review", "contract-operations"],
+  계약: [
+    "contract-review",
+    "contract-countermeasure",
+    "contract-drafting",
+    "contract-operations",
+  ],
   "물량·재고 운영": [
     "strategic-volume-ops",
     "supply-allocation",

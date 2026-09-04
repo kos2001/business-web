@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { MAX_FILE_BYTES, StagingError, stageUpload } from "@/lib/staging";
+import { extractTables, parseToMarkdown } from "@/lib/docparse";
+import { extensionOf, MAX_FILE_BYTES, StagingError, stageUpload } from "@/lib/staging";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,22 @@ export async function POST(req: Request) {
       file.name,
       new Uint8Array(await file.arrayBuffer()),
     );
-    return NextResponse.json(staged);
+
+    // Parse here rather than leaving it to the agent: this hermes build has no
+    // MCP, so docparser's tools never reach it. See src/lib/docparse.ts.
+    const ext = extensionOf(staged.name);
+    const [parse, tables] = await Promise.all([
+      parseToMarkdown(staged.path, ext),
+      extractTables(staged.path),
+    ]);
+
+    return NextResponse.json({
+      ...staged,
+      path: parse.path,
+      parsed: parse.parsed,
+      ...(tables ? { extraPaths: [tables] } : {}),
+      ...(parse.note ? { note: parse.note } : {}),
+    });
   } catch (err) {
     if (err instanceof StagingError) {
       return NextResponse.json({ error: err.message }, { status: 400 });
