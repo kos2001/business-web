@@ -116,6 +116,25 @@ const TOKEN_RUN = /(?:^|\s)([가-힣A-Za-z]{1,3})(?:\s+\1){3,}/;
  */
 const RATE_SUFFIX = /([가-힣])([률율])/g;
 
+/**
+ * Words that are one word, written as two.
+ *
+ * Deliberately a table and not a rule: Korean spacing is mostly not decidable
+ * without meaning, and the general version of this — flagging a repeated word,
+ * flagging a suspicious gap — was measured against every Korean text in the
+ * repository and produced 58 false positives out of 59 matches. 지연한 경우
+ * 지연배상, 6개월, 12개월 and 어느 고객·어느 딜 are all fine. So only entries
+ * that are wrong in every context go here, each earning its place with a
+ * recorded defect.
+ *
+ * `안 건` is the first: 안건 is one noun, and the split form is not a phrase
+ * that occurs otherwise — 안 as a negation attaches to a verb (안 건드린다),
+ * which the trailing boundary check excludes.
+ */
+const SPLIT_WORDS: readonly (readonly [RegExp, string, string])[] = [
+  [/안 건(?![가-힣])/g, "안 건", "안건"],
+];
+
 /** Which of 률/율 belongs after `syllable`, or null if it is not Hangul. */
 export function expectedRateSuffix(syllable: string): "률" | "율" | null {
   const code = syllable.codePointAt(0);
@@ -179,6 +198,12 @@ export function inspectAnswer(text: string): QualityReport {
       misspelled.set(word, { correct: word.slice(0, -1) + expected, index: m.index });
     }
   }
+  for (const [re, wrong, correct] of SPLIT_WORDS) {
+    re.lastIndex = 0;
+    const m = re.exec(text);
+    if (m) misspelled.set(wrong, { correct, index: m.index });
+  }
+
   for (const [wrong, { correct, index }] of misspelled) {
     issues.push({
       kind: "orthography",

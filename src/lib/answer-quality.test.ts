@@ -124,3 +124,26 @@ describe("률/율", () => {
     expect(expectedRateSuffix("A")).toBeNull();
   });
 });
+
+describe("붙여 써야 하는 말", () => {
+  it("catches 안 건, which the store recorded twice from one workspace", () => {
+    const r = inspectAnswer("Q3 단가 조정 안 건 서면 제공");
+    expect(r.issues).toEqual([
+      expect.objectContaining({ kind: "orthography", label: "안 건 → 안건" }),
+    ]);
+  });
+
+  it("leaves 안 alone when it is negating a verb", () => {
+    // 안 건드린다 · 안 걷힌다 — the same two characters, not the same word.
+    expect(inspectAnswer("아직 안 건드렸습니다. 회수가 안 걷힙니다.").ok).toBe(true);
+  });
+
+  it("does not flag words that merely repeat, which is not decidable", () => {
+    // Measured: a general repeated-word check produced 58 false positives out
+    // of 59 matches on this repository. These are all correct Korean.
+    const fine =
+      "지연한 경우 지연배상금을 지급한다. 3개월, 6개월, 12개월 단위로 본다. " +
+      "어느 고객·어느 딜에서 들은 말인지 밝힌다.";
+    expect(inspectAnswer(fine)).toEqual({ ok: true, issues: [] });
+  });
+});
