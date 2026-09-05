@@ -135,3 +135,54 @@ describe("checkAgainstSource", () => {
     expect(checkAgainstSource(`원문: "아무 말"`, "  ").ok).toBe(true);
   });
 });
+
+/**
+ * English contracts. Everything above was written against Korean text, and the
+ * figure check turned out to be blind here: run on a real English supply
+ * agreement it saw "10%" and nothing else, so a unit price stated as 14,000
+ * where the schedule says 14,200 went straight through.
+ */
+const EN_SOURCE = `
+Article 5 (Liquidated Damages)
+If Supplier delays delivery, Supplier shall pay 2.5% of the Contract Price per day of delay.
+
+| Part Number | Unit Price | Monthly Minimum | Lead Time |
+| SEM-A100 | USD 14,200 | 8,000 units | 21 days |
+| SEM-B220 | USD 9,800 | 5,000 units | 28 days |
+`;
+
+describe("checkAgainstSource — 영문 계약서", () => {
+  it("accepts a price quoted from the schedule", () => {
+    const r = checkAgainstSource("Unit price is USD 14,200 for SEM-A100.", EN_SOURCE);
+    expect(r.issues).toEqual([]);
+  });
+
+  it("catches a price the schedule does not state", () => {
+    const r = checkAgainstSource("Unit price is USD 14,000 for SEM-A100.", EN_SOURCE);
+    expect(r.issues.map((i) => i.evidence)).toEqual(["USD 14,000"]);
+  });
+
+  it("reads quantities and lead times, not just currency", () => {
+    const ok = checkAgainstSource("8,000 units at a 21 days lead time.", EN_SOURCE);
+    expect(ok.issues).toEqual([]);
+    const bad = checkAgainstSource("9,000 units at a 30 days lead time.", EN_SOURCE);
+    expect(bad.issues.map((i) => i.evidence).sort()).toEqual(["30 days", "9,000 units"]);
+  });
+
+  it("does not treat an article number as a figure", () => {
+    expect(checkAgainstSource("See Article 5 and Section 11.", EN_SOURCE).issues).toEqual([]);
+  });
+
+  it("reports one figure once even though two patterns match it", () => {
+    // "10%" matches the Korean pattern and "10 %" the English one.
+    const r = checkAgainstSource("Proposed: cap the aggregate at 10%.", EN_SOURCE);
+    expect(r.issues).toHaveLength(1);
+  });
+
+  it("checks a blockquote citation the same way", () => {
+    const good = `> "Supplier shall pay 2.5% of the Contract Price per day of delay."`;
+    expect(checkAgainstSource(good, EN_SOURCE).ok).toBe(true);
+    const bad = `> "Supplier shall pay 5% of the Contract Price per day of delay."`;
+    expect(checkAgainstSource(bad, EN_SOURCE).ok).toBe(false);
+  });
+});
