@@ -184,3 +184,34 @@ describe("_resetForTests 안전장치", () => {
     process.env.DEFECTS_DB_PATH = prev;
   });
 });
+
+describe("시드가 드러낸 묶기 결함", () => {
+  it("교정이 인용보다 짧아도 같은 습관으로 묶는다", () => {
+    // 배상율 인하 / 지연배상율 / 연체 배상율 — one 율/률 habit reported three
+    // ways. Diffing quote against correction whole gave 율인하→률 for the first
+    // and split the pattern below the threshold.
+    const a = spellingChange("배상율 인하", "'배상률'의 오타입니다.");
+    const b = spellingChange("지연배상율", "'지연배상률'의 오타입니다.");
+    const c = spellingChange("연체 배상율", "'연체 배상률'의 오타입니다.");
+    expect(a).toBe("율→률");
+    expect([b, c]).toEqual(["율→률", "율→률"]);
+  });
+
+  it("수치 결함은 인용이 아니라 교정 내용으로 묶는다", () => {
+    // The quote is wherever the mistake landed; the correction is what is
+    // stable. Keying on the quote meant a recurring wrong citation could never
+    // be seen as recurring.
+    const r = "감액 근거는 제398조 제2항입니다.";
+    const keys = ["민법 제393조", "민법 제393조 감액", "제393조에 따라 감액"]
+      .map((q) => normaliseQuote("number", q, r));
+    expect(new Set(keys).size).toBe(1);
+  });
+
+  it("교정을 못 찾은 수치 결함은 여전히 인용으로 묶는다", () => {
+    expect(normaliseQuote("number", "40일 초과", "")).toBe("number:40일 초과");
+  });
+
+  it("전혀 다른 단어는 오타로 묶지 않는다", () => {
+    expect(spellingChange("계약서 전체", "'해지'의 오타입니다.")).toBeNull();
+  });
+});
