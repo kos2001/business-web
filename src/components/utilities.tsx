@@ -15,6 +15,14 @@
 export interface Utility {
   href: string;
   label: string;
+  /**
+   * What the caption says when the full label will not fit.
+   *
+   * "Confluence 연결" truncated to "Confluence…" under its icon, which defeats
+   * the point of captioning it at all. Dropping the verb keeps the word that
+   * identifies the thing; the full name stays in `aria-label` and the tooltip.
+   */
+  short?: string;
   /** SVG path for a 16×16 stroked icon. */
   path: string;
 }
@@ -35,11 +43,13 @@ export const UTILITIES: readonly Utility[] = [
   {
     href: "/settings/access",
     label: "접근 권한 설정",
+    short: "접근 권한",
     path: "M9.5 6.5a2.5 2.5 0 1 1-1.9 4.1L3 15.2 2 14.2l.8-.8-.9-.9.9-.9-.9-.9L6.4 6.4A2.5 2.5 0 0 1 9.5 3.9",
   },
   {
     href: "/settings/confluence",
     label: "Confluence 연결",
+    short: "Confluence",
     path: "M6.5 9.5a3 3 0 0 0 4.24 0l2-2a3 3 0 0 0-4.24-4.24l-.7.7M9.5 6.5a3 3 0 0 0-4.24 0l-2 2a3 3 0 0 0 4.24 4.24l.7-.7",
   },
   {

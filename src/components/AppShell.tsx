@@ -186,22 +186,32 @@ export default function AppShell({
       <div className="relative flex min-w-0 flex-1 flex-col">
         <div className="pointer-events-none absolute right-0 top-0 z-20 hidden p-3 sm:block">
           <div className="pointer-events-auto flex items-center gap-0.5">
+            {/* The name under the icon, not only in a tooltip. Five unlabelled
+                glyphs in a corner are a guessing game until you have learned
+                them, and this is where someone lands who does not know the app
+                yet. There is room for it here — that was the reason for moving
+                out of the sidebar. */}
             {UTILITIES.map((u) => (
               <Link
                 key={u.href}
                 href={u.href}
                 title={u.label}
                 aria-label={u.label}
-                className="relative flex size-8 items-center justify-center rounded-md text-ink-soft transition-colors hover:bg-canvas hover:text-ink"
+                className="group relative flex w-[4.5rem] flex-col items-center gap-0.5 rounded-md px-1 py-1 text-ink-soft transition-colors hover:bg-canvas hover:text-ink"
               >
-                <UtilityIcon path={u.path} />
-                {u.href === "/stores" && storeWarn && (
-                  <span
-                    className="absolute right-1 top-1 size-1.5 rounded-full"
-                    style={{ backgroundColor: "var(--color-warn)" }}
-                    aria-label="확인 필요"
-                  />
-                )}
+                <span className="relative">
+                  <UtilityIcon path={u.path} />
+                  {u.href === "/stores" && storeWarn && (
+                    <span
+                      className="absolute -right-1 -top-0.5 size-1.5 rounded-full"
+                      style={{ backgroundColor: "var(--color-warn)" }}
+                      aria-label="확인 필요"
+                    />
+                  )}
+                </span>
+                <span className="w-full truncate text-center text-[10px] leading-tight">
+                  {u.short ?? u.label}
+                </span>
               </Link>
             ))}
           </div>
