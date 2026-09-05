@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ConfluenceError, fetchPage, isConfigured } from "@/lib/confluence";
+import { ConfluenceError, describeConfig, fetchPage } from "@/lib/confluence";
 import { stageUpload, StagingError } from "@/lib/staging";
 
 /**
@@ -20,8 +20,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   // The composer asks before offering the control, so a missing configuration
-  // reads as "not set up here" rather than as a failure when clicked.
-  return NextResponse.json({ configured: isConfigured() });
+  // reads as "not set up here" rather than as a failure when clicked. The
+  // settings page reads the same endpoint for its status block — which fields
+  // are present, never their contents.
+  return NextResponse.json(describeConfig());
 }
 
 export async function POST(req: Request) {

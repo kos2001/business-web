@@ -291,6 +291,14 @@ export default function Sidebar({
         >
           접근 권한 설정
         </Link>
+        {/* The wiki control hides itself when unconfigured, which is right and
+            also silent. This is where "왜 안 보이지" gets an answer. */}
+        <Link
+          href="/settings/confluence"
+          className="block rounded-md px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas hover:text-ink"
+        >
+          Confluence 연결
+        </Link>
       </div>
     </aside>
   );

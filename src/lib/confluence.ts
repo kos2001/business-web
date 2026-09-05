@@ -30,9 +30,63 @@ const TOKEN = process.env.CONFLUENCE_API_TOKEN ?? "";
 
 export class ConfluenceError extends Error {}
 
+/**
+ * Atlassian Cloud and Data Center authenticate differently, and a company
+ * running Confluence on its own hardware is the likelier case here.
+ *
+ * - **Cloud** (`*.atlassian.net`): Basic, `email:api-token`.
+ * - **Data Center / Server** (on-prem): Bearer, a Personal Access Token. There
+ *   is no email in it, so requiring one would have made the on-prem case
+ *   impossible to configure.
+ *
+ * The presence of an email decides which, because that is the field that only
+ * exists in the Cloud flow. Getting this wrong is a 401 with nothing in it to
+ * say why, so `describeMode` exists to put the choice on screen.
+ */
+export type AuthMode = "cloud" | "datacenter";
+
+export function authMode(): AuthMode {
+  return EMAIL ? "cloud" : "datacenter";
+}
+
+function authHeader(): string {
+  return authMode() === "cloud"
+    ? `Basic ${Buffer.from(`${EMAIL}:${TOKEN}`).toString("base64")}`
+    : `Bearer ${TOKEN}`;
+}
+
 /** Whether the feature is usable at all, so the UI can say so up front. */
 export function isConfigured(): boolean {
-  return Boolean(BASE && EMAIL && TOKEN);
+  return Boolean(BASE && TOKEN);
+}
+
+/**
+ * What the settings page shows. Deliberately says which fields are present and
+ * never what is in them — a settings screen that echoes a token back is a
+ * settings screen that leaks it into a screenshot.
+ */
+export function describeConfig(): {
+  configured: boolean;
+  host: string | null;
+  mode: AuthMode;
+  hasBase: boolean;
+  hasEmail: boolean;
+  hasToken: boolean;
+} {
+  let host: string | null = null;
+  try {
+    host = BASE ? new URL(BASE).host : null;
+  } catch {
+    host = null;
+  }
+  return {
+    configured: isConfigured(),
+    host,
+    mode: authMode(),
+    hasBase: Boolean(BASE),
+    hasEmail: Boolean(EMAIL),
+    hasToken: Boolean(TOKEN),
+  };
 }
 
 function baseUrl(): URL {
@@ -147,8 +201,8 @@ export function storageToText(xhtml: string): string {
 export async function fetchPage(input: string): Promise<ConfluencePage> {
   if (!isConfigured()) {
     throw new ConfluenceError(
-      "Confluence 연결이 설정되지 않았습니다. .env.local 에 CONFLUENCE_BASE_URL, " +
-        "CONFLUENCE_EMAIL, CONFLUENCE_API_TOKEN 을 넣어 주세요.",
+      "Confluence 연결이 설정되지 않았습니다. 설정 > Confluence 연결 에서 " +
+        "넣어야 할 값을 확인하세요.",
     );
   }
   const id = pageIdFrom(input);
@@ -159,17 +213,33 @@ export async function fetchPage(input: string): Promise<ConfluencePage> {
     site.origin,
   );
 
-  const res = await fetch(api, {
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${EMAIL}:${TOKEN}`).toString("base64")}`,
-      Accept: "application/json",
-    },
-    cache: "no-store",
-  });
+  let res: Response;
+  try {
+    res = await fetch(api, {
+      headers: { Authorization: authHeader(), Accept: "application/json" },
+      cache: "no-store",
+    });
+  } catch (err) {
+    // Node's own message here is "fetch failed", which tells the reader
+    // nothing. On an on-prem wiki this is almost always one of three things,
+    // and the commonest by far is being off the VPN — worth naming, because
+    // the alternative is someone re-issuing a token that was never at fault.
+    throw new ConfluenceError(
+      `${site.host} 에 연결하지 못했습니다. VPN 연결, 주소 오타, 방화벽을 확인해 주세요. ` +
+        `(${err instanceof Error ? err.message : "네트워크 오류"})`,
+    );
+  }
 
   if (res.status === 401 || res.status === 403) {
+    // Naming the mode is the whole point: the commonest cause of this is being
+    // in the wrong one, and a bare "인증 실패" sends people to re-issue a token
+    // that was never the problem.
     throw new ConfluenceError(
-      "Confluence 인증에 실패했습니다. API 토큰과 이메일을 확인해 주세요.",
+      authMode() === "cloud"
+        ? "Confluence 인증 실패 (Cloud 방식). 이메일과 API 토큰을 확인하세요. " +
+          "사내 서버(Data Center)라면 CONFLUENCE_EMAIL 을 비우고 Personal Access Token 만 넣으세요."
+        : "Confluence 인증 실패 (Data Center 방식). Personal Access Token 을 확인하세요. " +
+          "Atlassian Cloud 라면 CONFLUENCE_EMAIL 도 함께 넣어야 합니다.",
     );
   }
   if (res.status === 404) {
