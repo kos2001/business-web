@@ -123,6 +123,37 @@ export default function Sidebar({
     .filter((n): n is NavItem => Boolean(n))
     .slice(0, 5);
 
+  /**
+   * What is stored, alongside the link to it.
+   *
+   * The corpus decays quietly: a document copied in by hand is invisible to
+   * search, and an empty corpus makes every contract review answer from the
+   * model's own knowledge while looking exactly as confident. Both were only
+   * discoverable by opening a page on purpose, which is to say not discovered.
+   *
+   * A count here is the cheap version of noticing. It is a number and a dot,
+   * not a panel — the detail already has a page, and the sidebar's job is to
+   * say whether that page is worth opening today.
+   */
+  const [stores, setStores] = useState<{ docs: number; staged: number; warn: boolean } | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/stores")
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { corpus: { documents: unknown[] }; staging: { files: unknown[] }; findings: { severity: string }[] }) => {
+        if (!live) return;
+        setStores({
+          docs: d.corpus.documents.length,
+          staged: d.staging.files.length,
+          warn: d.findings.some((f) => f.severity === "urgent"),
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, []);
+
   // The drawer is never a rail: it opens because there is no room for a
   // sidebar, and a rail inside it would be a nav folded twice.
   const rail = collapsed && !forceVisible;
@@ -360,23 +391,41 @@ export default function Sidebar({
           // Only the daily one survives the fold. The settings pages are visited
           // once; putting five unlabelled icons in a 56px column to reach them
           // trades a clear nav for a guessing game.
-          <Link
-            href="/dashboard"
-            title="다음 액션"
-            aria-label="다음 액션"
-            className="flex w-full justify-center rounded-md py-1.5 text-ink-soft hover:bg-canvas hover:text-ink"
-          >
-            <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden>
-              <path
-                d="M2.5 8.5 6 12l7.5-8"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </Link>
+          <>
+            <Link
+              href="/dashboard"
+              title="다음 액션"
+              aria-label="다음 액션"
+              className="flex w-full justify-center rounded-md py-1.5 text-ink-soft hover:bg-canvas hover:text-ink"
+            >
+              <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden>
+                <path
+                  d="M2.5 8.5 6 12l7.5-8"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </Link>
+            {/* Folded, the counts do not fit — but a problem still has to be
+                visible, or collapsing the sidebar hides the one thing it was
+                just given to say. */}
+            {stores?.warn && (
+              <Link
+                href="/stores"
+                title="문서와 저장소 — 확인이 필요한 문제가 있습니다"
+                aria-label="문서와 저장소, 확인 필요"
+                className="flex w-full justify-center rounded-md py-1.5 hover:bg-canvas"
+              >
+                <span
+                  className="size-1.5 rounded-full"
+                  style={{ backgroundColor: "var(--color-warn)" }}
+                />
+              </Link>
+            )}
+          </>
         ) : (
           <>
         {onReset && (
@@ -413,9 +462,27 @@ export default function Sidebar({
         </Link>
         <Link
           href="/stores"
-          className="block rounded-md px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas hover:text-ink"
+          className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas hover:text-ink"
         >
-          문서와 저장소
+          <span>문서와 저장소</span>
+          {stores && (
+            <>
+              <span className="tabular-nums opacity-70">
+                선례 {stores.docs}
+                {stores.staged > 0 && ` · 임시 ${stores.staged}`}
+              </span>
+              {/* A dot rather than a number for the problem: the count of
+                  findings is not the point, whether there is one is. */}
+              {stores.warn && (
+                <span
+                  className="size-1.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: "var(--color-warn)" }}
+                  title="확인이 필요한 문제가 있습니다"
+                  aria-label="확인 필요"
+                />
+              )}
+            </>
+          )}
         </Link>
         <Link
           href="/settings/access"
