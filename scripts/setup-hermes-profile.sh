@@ -13,6 +13,11 @@ set -euo pipefail
 
 PROFILE=sales-agent
 PORT=8660
+
+# 모델은 여기가 원본이다. 프로필의 config.yaml 은 git 밖이라, 이 값이 레포에 없으면
+# 새로 설치할 때마다 hermes 기본값으로 돌아간다. 왜 이 모델인지는 README 의
+# "모델을 고르는 기준" 에 측정치와 함께 적혀 있다 — 취향이 아니라 관측 결과다.
+MODEL="${SALES_MODEL:-z-ai/glm-5.3-flash}"
 PROFILE_DIR="$HOME/.hermes/profiles/$PROFILE"
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SOUL_SRC="$REPO_DIR/profiles/$PROFILE/SOUL.md"
@@ -83,7 +88,21 @@ else
   say "(dry-run) $ENV_FILE 에 API_SERVER_ENABLED/KEY/PORT($PORT)/HOST 추가"
 fi
 
-# ── 5) 플레이북 커버리지 검증 ───────────────────────────────────────────────
+# ── 5) 모델 ─────────────────────────────────────────────────────────────────
+# 이미 다른 값으로 설정돼 있으면 덮되 무엇을 바꾸는지 말한다. 조용히 갈아 끼우면
+# 누가 왜 바꿨는지 모르는 채로 답변 품질만 달라진다.
+current="$(hermes -p "$PROFILE" config get model.default 2>/dev/null || true)"
+if [ "$current" = "$MODEL" ]; then
+  say "모델 이미 $MODEL"
+elif [ -n "$current" ]; then
+  run hermes -p "$PROFILE" config set model.default "$MODEL"
+  say "모델 변경: $current → $MODEL"
+else
+  run hermes -p "$PROFILE" config set model.default "$MODEL"
+  say "모델 설정: $MODEL"
+fi
+
+# ── 6) 플레이북 커버리지 검증 ───────────────────────────────────────────────
 # 앱이 이름으로 부르는 플레이북이 실제로 깔렸는지 여기서 확인한다. 런타임에도
 # /api/agents 가 같은 검사를 하지만, 셋업 단계에서 잡는 편이 훨씬 싸다.
 if $APPLY; then
