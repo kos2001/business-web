@@ -13,6 +13,21 @@ export interface Stat {
   label: string;
   value: number;
   tone?: "urgent" | "normal";
+  /**
+   * Makes the tile a filter for the list below it.
+   *
+   * A count with nothing behind it is a dead end — the improvement page showed
+   * "전체 발견 14" above an empty list, because only recurring defects were
+   * listed and none had recurred yet. The fourteen were the material for the
+   * improvement and there was no way to reach them. Tiles that can open are how
+   * a number stops being trivia.
+   *
+   * Optional: a tile with no handler stays a plain box, so the pages that only
+   * report numbers are unchanged.
+   */
+  onSelect?: () => void;
+  /** This tile's filter is the one currently applied. */
+  selected?: boolean;
 }
 
 export function StatRow({ stats }: { stats: Stat[] }) {
@@ -20,15 +35,24 @@ export function StatRow({ stats }: { stats: Stat[] }) {
     <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
       {stats.map((s) => {
         const urgent = s.tone === "urgent" && s.value > 0;
+        const border = s.selected
+          ? { borderColor: "var(--color-accent)", borderLeftWidth: 3 }
+          : urgent
+            ? { borderColor: "var(--color-warn)", borderLeftWidth: 3 }
+            : { borderColor: "var(--color-line)" };
+        // A real button when it does something, so it is reachable by keyboard
+        // and announced as a control; a plain box when it does not, so nothing
+        // invites a click that goes nowhere.
+        const Tag = s.onSelect ? "button" : "div";
         return (
-          <div
+          <Tag
             key={s.label}
-            className="rounded-xl border bg-surface px-3.5 py-3"
-            style={
-              urgent
-                ? { borderColor: "var(--color-warn)", borderLeftWidth: 3 }
-                : { borderColor: "var(--color-line)" }
-            }
+            onClick={s.onSelect}
+            aria-pressed={s.onSelect ? s.selected === true : undefined}
+            className={`rounded-xl border bg-surface px-3.5 py-3 text-left ${
+              s.onSelect ? "transition-colors hover:border-accent" : ""
+            }`}
+            style={border}
           >
             <div
               className="text-2xl font-semibold tabular-nums leading-none"
@@ -37,7 +61,7 @@ export function StatRow({ stats }: { stats: Stat[] }) {
               {s.value}
             </div>
             <div className="mt-1.5 text-xs text-ink-soft">{s.label}</div>
-          </div>
+          </Tag>
         );
       })}
     </div>
