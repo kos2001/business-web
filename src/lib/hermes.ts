@@ -73,6 +73,39 @@ export async function startRun(input: StartRunInput): Promise<StartRunResult> {
   return (await res.json()) as StartRunResult;
 }
 
+/**
+ * Runs a prompt and waits for the answer, polling rather than streaming.
+ *
+ * The chat path streams because a person is watching tokens appear. Machine
+ * callers — the answer review in `answer-review.ts` — want one string and have
+ * no use for the intermediate events, and reassembling `message.delta` frames
+ * just to throw the stream away is more code with more to go wrong.
+ *
+ * Bounded by `timeoutMs` and returns null on timeout rather than throwing: the
+ * callers are checks on someone else's answer, and a check that fails must not
+ * take the answer down with it.
+ */
+export async function runBlocking(
+  input: StartRunInput,
+  timeoutMs = 120_000,
+): Promise<string | null> {
+  const started = await startRun(input);
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 2_000));
+    const res = await fetch(`${BASE}/v1/runs/${encodeURIComponent(started.run_id)}`, {
+      headers: headers(input.upstream),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { status?: string; output?: string };
+    if (body.status === "completed") return body.output ?? "";
+    if (body.status === "failed") return null;
+  }
+  return null;
+}
+
 /** Opens the run's SSE stream. The caller pipes the body straight through. */
 export async function runEvents(
   runId: string,

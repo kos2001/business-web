@@ -47,13 +47,20 @@ export type Backend = "hermes" | "mi-report" | "marketing-agent";
  * Nav groups, in nav order. These are the team's work domains, not deal stages:
  * a deal-stage nav would have no place to put 재고 운용 or PCN 대응, which is
  * how those playbooks went unreachable in the first place.
+ *
+ * 계약 leads because that is where the team's work currently sits. The order
+ * was originally chronological — research, then strategy, then the deal, then
+ * the contract — which reads as a tidy story and put the most-used domain
+ * fifth, below the fold on a laptop. Nav order is attention, not narrative:
+ * whatever is scrolled past is effectively unavailable, so the domain in use
+ * goes first. Revisit this when the team's focus moves.
  */
 export const STAGES = [
+  "계약",
+  "딜 진행",
   "시장·고객 조사",
   "판매전략",
   "신규수요 창출",
-  "딜 진행",
-  "계약",
   "물량·품질 운영",
   "고객 관리",
 ] as const;

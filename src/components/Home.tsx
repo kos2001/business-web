@@ -168,7 +168,7 @@ export default function Home({ agents }: { agents: HomeAgent[] }) {
                 if (e.key === "Enter" && matches.length > 0) open(matches[0].slug);
                 if (e.key === "Escape") setQ("");
               }}
-              placeholder="예) 단종 통지 받았는데 영향 고객 정리해 줘"
+              placeholder="예) 받은 계약서 검토해 줘"
               aria-label="하려는 일 검색"
               className="w-full rounded-xl border border-line bg-surface py-3 pl-10 pr-16 text-sm outline-none transition-colors focus:border-accent"
             />
