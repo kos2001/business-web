@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { completeLogin, TX_COOKIE, type OidcTransaction } from "@/lib/oidc";
+import { completeLogin, safeNext, TX_COOKIE, type OidcTransaction } from "@/lib/oidc";
 import { isAuthorized, persistBootstrapAdmin } from "@/lib/access";
 import {
   createSessionToken,
@@ -58,7 +58,7 @@ export async function GET(req: Request) {
     persistBootstrapAdmin(claims.email);
 
     const token = await createSessionToken(claims);
-    const res = NextResponse.redirect(new URL(tx.next || "/", url.origin));
+    const res = NextResponse.redirect(new URL(safeNext(tx.next), url.origin));
     res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
     res.cookies.delete(TX_COOKIE); // single use
     return res;

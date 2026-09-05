@@ -1,19 +1,12 @@
 import { NextResponse } from "next/server";
-import { beginLogin, TX_COOKIE, TX_MAX_AGE_SECONDS } from "@/lib/oidc";
+import { beginLogin, safeNext, TX_COOKIE, TX_MAX_AGE_SECONDS } from "@/lib/oidc";
 
 export const dynamic = "force-dynamic";
 
 /** Starts the OIDC round trip: park the transaction, redirect to the IdP. */
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const requested = url.searchParams.get("next") ?? "/";
-
-  // Only same-site paths. Reflecting an arbitrary `next` back as a redirect is
-  // an open redirect: the login link is exactly what a phishing page wants to
-  // borrow, since it starts on a domain the user trusts.
-  const next = requested.startsWith("/") && !requested.startsWith("//")
-    ? requested
-    : "/";
+  const next = safeNext(url.searchParams.get("next"));
 
   try {
     const { url: authUrl, tx } = await beginLogin(next);
