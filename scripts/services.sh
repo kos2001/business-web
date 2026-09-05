@@ -53,7 +53,7 @@ status() {
       down=$((down+1))
     fi
   done
-  [ "$down" -gt 0 ] && echo && echo "$down개 내려감 — './scripts/services.sh start' 로 올립니다."
+  [ "$down" -gt 0 ] && echo && echo "${down}개 내려감 — './scripts/services.sh start' 로 올립니다."
   return 0
 }
 

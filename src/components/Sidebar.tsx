@@ -267,6 +267,24 @@ export default function Sidebar({
             새 대화 시작
           </button>
         )}
+        {/* Above the settings link, because outstanding work is something you
+            check daily and permissions are something you set once. */}
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas hover:text-ink"
+        >
+          <svg viewBox="0 0 16 16" className="size-3.5 shrink-0" aria-hidden>
+            <path
+              d="M2.5 8.5 6 12l7.5-8"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          다음 액션
+        </Link>
         <Link
           href="/settings/access"
           className="block rounded-md px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas hover:text-ink"
