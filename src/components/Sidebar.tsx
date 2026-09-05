@@ -154,6 +154,52 @@ export default function Sidebar({
     };
   }, []);
 
+  /**
+   * The four pages that are about the system rather than about the work.
+   *
+   * They were five plain text lines at the bottom of the nav, below twenty-five
+   * workspaces — reachable only after scrolling past everything. As a row of
+   * icons under the logo they cost one line instead of four and are always in
+   * the same place.
+   *
+   * Icons only, deliberately. These are visited occasionally; giving them
+   * labels at the top would put the least-used items in the most prominent
+   * space and push the workspace nav down. The title attribute carries the
+   * name, and `aria-label` carries it for anyone not using a mouse.
+   */
+  const utilities = [
+    {
+      href: "/improvement",
+      label: "반복되는 결함",
+      // Arrow returning on itself — something that keeps coming back.
+      path: "M3 8a5 5 0 0 1 8.5-3.5L13 6M13 8a5 5 0 0 1-8.5 3.5L3 10M13 3v3h-3M3 13v-3h3",
+    },
+    {
+      href: "/stores",
+      label: "문서와 저장소",
+      // Stacked discs — what is held.
+      path: "M8 2.5c2.8 0 5 .7 5 1.6S10.8 5.7 8 5.7 3 5 3 4.1s2.2-1.6 5-1.6zM3 4.1v3.8c0 .9 2.2 1.6 5 1.6s5-.7 5-1.6V4.1M3 7.9v3.8c0 .9 2.2 1.6 5 1.6s5-.7 5-1.6V7.9",
+    },
+    {
+      href: "/settings/access",
+      label: "접근 권한 설정",
+      // A key.
+      path: "M9.5 6.5a2.5 2.5 0 1 1-1.9 4.1L3 15.2 2 14.2l.8-.8-.9-.9.9-.9-.9-.9L6.4 6.4A2.5 2.5 0 0 1 9.5 3.9",
+    },
+    {
+      href: "/settings/confluence",
+      label: "Confluence 연결",
+      // A link.
+      path: "M6.5 9.5a3 3 0 0 0 4.24 0l2-2a3 3 0 0 0-4.24-4.24l-.7.7M9.5 6.5a3 3 0 0 0-4.24 0l-2 2a3 3 0 0 0 4.24 4.24l.7-.7",
+    },
+  ] as const;
+
+  const utilIcon = (d: string) => (
+    <svg viewBox="0 0 16 16" fill="none" className="size-4" aria-hidden>
+      <path d={d} stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+
   // The drawer is never a rail: it opens because there is no room for a
   // sidebar, and a rail inside it would be a nav folded twice.
   const rail = collapsed && !forceVisible;
@@ -197,6 +243,38 @@ export default function Sidebar({
             </span>
           </span>
         </Link>
+      )}
+
+      {!rail && (
+        <div className="flex items-center gap-0.5 border-b border-line px-2.5 py-1.5">
+          {utilities.map((u) => (
+            <Link
+              key={u.href}
+              href={u.href}
+              title={u.label}
+              aria-label={u.label}
+              aria-current={slug ? undefined : undefined}
+              className="relative flex size-8 items-center justify-center rounded-md text-ink-soft transition-colors hover:bg-canvas hover:text-ink"
+            >
+              {utilIcon(u.path)}
+              {/* The store's warning rides its own icon. A count would not fit
+                  and is not the question — whether there is a problem is. */}
+              {u.href === "/stores" && stores?.warn && (
+                <span
+                  className="absolute right-1 top-1 size-1.5 rounded-full"
+                  style={{ backgroundColor: "var(--color-warn)" }}
+                  aria-label="확인 필요"
+                />
+              )}
+            </Link>
+          ))}
+          <span className="flex-1" />
+          {stores && (
+            <span className="pr-1 text-[11px] tabular-nums text-ink-soft/70" title="선례 문서 수">
+              선례 {stores.docs}
+            </span>
+          )}
+        </div>
       )}
 
       {rail ? (
@@ -409,22 +487,28 @@ export default function Sidebar({
                 />
               </svg>
             </Link>
-            {/* Folded, the counts do not fit — but a problem still has to be
-                visible, or collapsing the sidebar hides the one thing it was
-                just given to say. */}
-            {stores?.warn && (
+            {/* The same four, stacked. Folded is where an icon-only nav is
+                already the language, so they cost nothing extra here — and
+                dropping them would make collapsing the sidebar the way to lose
+                half the app. */}
+            {utilities.map((u) => (
               <Link
-                href="/stores"
-                title="문서와 저장소 — 확인이 필요한 문제가 있습니다"
-                aria-label="문서와 저장소, 확인 필요"
-                className="flex w-full justify-center rounded-md py-1.5 hover:bg-canvas"
+                key={u.href}
+                href={u.href}
+                title={u.label}
+                aria-label={u.label}
+                className="relative flex w-full justify-center rounded-md py-1.5 text-ink-soft hover:bg-canvas hover:text-ink"
               >
-                <span
-                  className="size-1.5 rounded-full"
-                  style={{ backgroundColor: "var(--color-warn)" }}
-                />
+                {utilIcon(u.path)}
+                {u.href === "/stores" && stores?.warn && (
+                  <span
+                    className="absolute right-2.5 top-1 size-1.5 rounded-full"
+                    style={{ backgroundColor: "var(--color-warn)" }}
+                    aria-label="확인 필요"
+                  />
+                )}
               </Link>
-            )}
+            ))}
           </>
         ) : (
           <>
@@ -454,50 +538,9 @@ export default function Sidebar({
           </svg>
           다음 액션
         </Link>
-        <Link
-          href="/improvement"
-          className="block rounded-md px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas hover:text-ink"
-        >
-          반복되는 결함
-        </Link>
-        <Link
-          href="/stores"
-          className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas hover:text-ink"
-        >
-          <span>문서와 저장소</span>
-          {stores && (
-            <>
-              <span className="tabular-nums opacity-70">
-                선례 {stores.docs}
-                {stores.staged > 0 && ` · 임시 ${stores.staged}`}
-              </span>
-              {/* A dot rather than a number for the problem: the count of
-                  findings is not the point, whether there is one is. */}
-              {stores.warn && (
-                <span
-                  className="size-1.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: "var(--color-warn)" }}
-                  title="확인이 필요한 문제가 있습니다"
-                  aria-label="확인 필요"
-                />
-              )}
-            </>
-          )}
-        </Link>
-        <Link
-          href="/settings/access"
-          className="block rounded-md px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas hover:text-ink"
-        >
-          접근 권한 설정
-        </Link>
-        {/* The wiki control hides itself when unconfigured, which is right and
-            also silent. This is where "왜 안 보이지" gets an answer. */}
-        <Link
-          href="/settings/confluence"
-          className="block rounded-md px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas hover:text-ink"
-        >
-          Confluence 연결
-        </Link>
+        {/* 반복되는 결함 · 문서와 저장소 · 접근 권한 · Confluence 는 상단
+            아이콘 바로 옮겼다. 여기 남은 둘은 업무에 대한 것이고, 옮긴 넷은
+            시스템에 대한 것이다. */}
           </>
         )}
       </div>
