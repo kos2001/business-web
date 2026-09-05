@@ -78,11 +78,22 @@ export default function ActivityTrace({
   tools,
   running,
   startedAt,
+  agent,
 }: {
   tools: ToolTrace[];
   running: boolean;
   /** When the run began, for the elapsed counter. */
   startedAt?: number;
+  /**
+   * Which agent is doing this, and on what model.
+   *
+   * The trace already showed *what* was being done and never *who* was doing
+   * it, which left the answer looking like output from the website. It is a
+   * named agent on a named model, and both matter: quality varies by model
+   * (see the README on why this one was chosen), and the review that follows is
+   * only meaningful because it runs somewhere else.
+   */
+  agent?: { name: string; model: string };
 }) {
   // Collapsed by default once finished: the finished answer is what the reader
   // came for, and the trace is evidence they can open if they want it.
@@ -114,6 +125,11 @@ export default function ActivityTrace({
         <span className="text-xs font-medium">
           {running ? "작업 중" : `작업 ${tools.length}단계 완료`}
         </span>
+        {agent && (
+          <span className="truncate text-[11px] text-ink-soft" title={`모델 ${agent.model}`}>
+            {agent.name}
+          </span>
+        )}
         {running && tools.length > 0 && (
           <span className="text-xs text-ink-soft">
             {done}/{tools.length}

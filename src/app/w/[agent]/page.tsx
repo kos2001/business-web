@@ -27,7 +27,12 @@ export default async function AgentPage({
         stage={agent.stage}
         starters={agent.starters}
         actions={agent.actions}
-      corpus={agent.corpus ?? false}
+        corpus={agent.corpus ?? false}
+        // The backend behind this workspace, named on screen. Three different
+        // ones answer here and their models differ; an answer that does not say
+        // which produced it cannot be judged against what that model is known
+        // to do well.
+        agent={{ name: agent.upstream, model: agent.model }}
         nav={AGENTS.map((a) => ({
           slug: a.slug,
           label: a.label,

@@ -68,6 +68,8 @@ export const PLAYBOOKS_BY_DOMAIN = {
     "contract-countermeasure",
     "contract-drafting",
     "contract-operations",
+    "contract-diff",
+    "contract-legal-brief",
   ],
   "물량·재고 운영": [
     "strategic-volume-ops",

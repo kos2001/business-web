@@ -23,6 +23,7 @@ export default function Workspace({
   starters,
   actions,
   corpus,
+  agent,
   nav,
 }: {
   slug: string;
@@ -33,6 +34,8 @@ export default function Workspace({
   actions?: { id: "report"; label: string; hint: string }[];
   /** Contract workspaces can file an upload as precedent. */
   corpus?: boolean;
+  /** Named on the trace so the answer is attributable. */
+  agent: { name: string; model: string };
   nav: NavItem[];
 }) {
   // One session id per workspace per conversation. It scopes hermes's long-term
@@ -63,6 +66,10 @@ export default function Workspace({
   const docFirst = stage === "계약";
 
   const [uploading, setUploading] = useState(false);
+  /** Whether this deployment has Confluence credentials, asked once on mount. */
+  const [wikiOn, setWikiOn] = useState(false);
+  const [wikiOpen, setWikiOpen] = useState(false);
+  const [wikiUrl, setWikiUrl] = useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [filing, setFiling] = useState<string | null>(null);
@@ -107,6 +114,15 @@ export default function Workspace({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [run.turns, run.streaming, run.tools, run.approval]);
 
+  // Asked rather than assumed: offering a control that always errors is worse
+  // than not offering it, and the credentials that decide this are server-side.
+  useEffect(() => {
+    fetch("/api/confluence")
+      .then((r) => r.json())
+      .then((d: { configured?: boolean }) => setWikiOn(Boolean(d.configured)))
+      .catch(() => setWikiOn(false));
+  }, []);
+
   const busy = run.state !== "idle";
   const isEmpty = run.turns.length === 0 && !busy;
   /** Index of the newest user turn — where this run's trace belongs. */
@@ -114,6 +130,26 @@ export default function Workspace({
     (acc, t, i) => (t.role === "user" ? i : acc),
     -1,
   );
+
+  /**
+   * Asks the question again, naming what was wrong with the last answer.
+   *
+   * The faults go into the prompt rather than being fixed in place. A plain
+   * re-run is a second roll of the same dice; telling the model that it wrote
+   * 무상한 배상 and 반도체 부종 gives it something specific to avoid. The
+   * original question leads, because the task has not changed — only the
+   * warning has been added.
+   */
+  function retryWithFaults(question: string, faults: string[]) {
+    if (busy) return;
+    const listed = faults.slice(0, 8).map((f) => `- ${f}`).join("\n");
+    void run.send(
+      `${question}\n\n앞서 같은 요청에 대한 답변에서 아래 문제가 발견되었습니다. ` +
+        `같은 실수를 반복하지 말고 처음부터 다시 작성해 주세요. 특히 맞춤법과 ` +
+        `수치 표기를 출력 전에 스스로 점검하세요.\n${listed}`,
+      protect,
+    );
+  }
 
   function submit() {
     const text = draft.trim();
@@ -144,6 +180,37 @@ export default function Workspace({
       setUploadError("코퍼스 추가에 실패했습니다.");
     } finally {
       setFiling(null);
+    }
+  }
+
+  /**
+   * Pulls a Confluence page in and attaches it like a file.
+   *
+   * Shares `files` and `uploadError` with the upload path rather than having
+   * its own: once a page is attached it is a document, and giving it a separate
+   * list and a separate error line would mean two of everything for a
+   * distinction the user stops caring about the moment it is on screen.
+   */
+  async function addWikiPage() {
+    const url = wikiUrl.trim();
+    if (!url || uploading) return;
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const res = await fetch("/api/confluence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, sessionId }),
+      });
+      const body = (await res.json()) as Attachment & { error?: string };
+      if (!res.ok) throw new Error(body.error ?? "페이지를 가져오지 못했습니다.");
+      setFiles((prev) => [...prev, body]);
+      setWikiUrl("");
+      setWikiOpen(false);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "페이지를 가져오지 못했습니다.");
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -180,6 +247,64 @@ export default function Workspace({
    * *starts* with a file — a contract review with no contract has nothing to
    * review, so the first thing on screen should be the way to hand one over.
    */
+  /**
+   * The wiki equivalent of the upload button.
+   *
+   * Sits with it rather than in a menu: "the contract is a page, not a file" is
+   * not an advanced case, it is half the contracts, and a document source
+   * hidden behind an overflow is a document source nobody finds — the same
+   * mistake the paperclip made.
+   */
+  const wikiCta = wikiOn ? (
+    <div className="mt-2">
+      {wikiOpen ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <input
+            value={wikiUrl}
+            onChange={(e) => setWikiUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void addWikiPage();
+              if (e.key === "Escape") setWikiOpen(false);
+            }}
+            autoFocus
+            placeholder="Confluence 페이지 주소를 붙여넣으세요"
+            aria-label="Confluence 페이지 주소"
+            className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none transition-colors focus:border-accent"
+          />
+          <button
+            onClick={() => void addWikiPage()}
+            disabled={!wikiUrl.trim() || uploading}
+            className="rounded-lg border border-line bg-surface px-3 py-2 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+          >
+            {uploading ? "가져오는 중…" : "가져오기"}
+          </button>
+          <button
+            onClick={() => setWikiOpen(false)}
+            className="px-1.5 py-2 text-xs text-ink-soft hover:text-ink"
+          >
+            취소
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setWikiOpen(true)}
+          className="flex items-center gap-2 text-xs text-ink-soft transition-colors hover:text-accent"
+        >
+          <svg viewBox="0 0 16 16" fill="none" className="size-3.5" aria-hidden>
+            <path
+              d="M6.5 9.5a3 3 0 0 0 4.24 0l2-2a3 3 0 0 0-4.24-4.24l-.7.7M9.5 6.5a3 3 0 0 0-4.24 0l-2 2a3 3 0 0 0 4.24 4.24l.7-.7"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          계약서가 Confluence 페이지에 있나요? 주소로 가져오기
+        </button>
+      )}
+    </div>
+  ) : null;
+
   const uploadCta = (
     <button
       onClick={() => fileInputRef.current?.click()}
@@ -356,7 +481,12 @@ export default function Workspace({
                   말로 요청하세요.
                 </p>
 
-                {docFirst && uploadCta}
+                {docFirst && (
+                  <>
+                    {uploadCta}
+                    {wikiCta}
+                  </>
+                )}
 
                 {corpus && (
                   <div className="mt-4">
@@ -389,7 +519,12 @@ export default function Workspace({
                   ))}
                 </div>
 
-                {!docFirst && uploadCta}
+                {!docFirst && (
+                  <>
+                    {uploadCta}
+                    {wikiCta}
+                  </>
+                )}
               </div>
             )}
 
@@ -425,6 +560,15 @@ export default function Workspace({
                       // before this one.
                       run.turns[i - 1]?.sourcePaths ?? []
                     }
+                    onRetry={
+                      // Only the newest answer can be retried, and only while
+                      // nothing is running. Offering it on an old turn would
+                      // append a reply to a question two exchanges back, which
+                      // reads as the agent losing its place.
+                      !busy && i === run.turns.length - 1 && run.turns[i - 1]
+                        ? (faults) => retryWithFaults(run.turns[i - 1].text, faults)
+                        : undefined
+                    }
                   />
                   <ActionCapture answer={turn.text} workspace={slug} />
                 </>
@@ -438,6 +582,7 @@ export default function Workspace({
                   tools={run.tools}
                   running={busy}
                   startedAt={run.startedAt}
+                  agent={agent}
                 />
               )}
               </Fragment>
