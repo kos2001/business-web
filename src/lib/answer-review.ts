@@ -61,6 +61,15 @@ export interface AnswerReview {
   findings: ReviewFinding[];
   mechanical: QualityIssue[];
   source: SourceIssue[];
+  /**
+   * Who did the checking.
+   *
+   * Named rather than left implicit because the whole argument for trusting the
+   * check is that a *different* agent on a *different* model performed it. A
+   * verdict from an anonymous process is a verdict the reader has to take on
+   * faith, and the one thing this panel is for is not taking things on faith.
+   */
+  reviewer: { upstream: string; model: string };
 }
 
 const KINDS = new Set(["spelling", "broken-context", "table-misread", "number"]);
@@ -152,6 +161,7 @@ export async function reviewAnswer(
   answer: string,
   source?: string,
 ): Promise<AnswerReview> {
+  const reviewer = { upstream: REVIEW_UPSTREAM, model: REVIEW_MODEL };
   const mechanical = inspectAnswer(answer).issues;
   const sourceIssues = source ? checkAgainstSource(answer, source).issues : [];
 
@@ -170,7 +180,14 @@ export async function reviewAnswer(
   if (reply === null) {
     // The answer is unjudged, not judged clean. `ran: false` is what lets the
     // UI say so instead of showing a green tick nobody earned.
-    return { ok: mechanical.length === 0 && sourceIssues.length === 0, ran: false, findings: [], mechanical, source: sourceIssues };
+    return {
+      ok: mechanical.length === 0 && sourceIssues.length === 0,
+      ran: false,
+      findings: [],
+      mechanical,
+      source: sourceIssues,
+      reviewer,
+    };
   }
 
   const parsed = extractJsonArray(reply);
@@ -181,5 +198,6 @@ export async function reviewAnswer(
     findings,
     mechanical,
     source: sourceIssues,
+    reviewer,
   };
 }

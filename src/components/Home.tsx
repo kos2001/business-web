@@ -287,6 +287,16 @@ export default function Home({ agents }: { agents: HomeAgent[] }) {
                       <p className="min-w-0 truncate text-xs text-ink-soft">
                         {meta.what}
                       </p>
+                      {/* The domain heading is where someone already is when
+                          they want the domain's state; making them go to the
+                          global dashboard and filter back down is the long way
+                          round to the same page. */}
+                      <Link
+                        href={`/dashboard/${encodeURIComponent(stage)}`}
+                        className="shrink-0 whitespace-nowrap text-xs text-ink-soft hover:text-accent hover:underline"
+                      >
+                        현황 →
+                      </Link>
                       {/* A hairline that runs to the edge separates seven
                           sections without seven heavy borders. */}
                       <span

@@ -19,6 +19,20 @@ import type { AnswerReview } from "@/lib/answer-review";
  * A green tick on every answer becomes furniture within a day, and furniture is
  * not read on the day it matters. Clean answers get one grey line; problems get
  * a bordered panel that is open already. The asymmetry is the point.
+ *
+ * ## Why there is a retry button but no automatic rewrite
+ *
+ * The panel first shipped as a report with nothing to press, on the reasoning
+ * that repairing a contract review would hide that it was unreliable. That
+ * reasoning holds for a *silent* repair and not for this: when three typos are
+ * named on screen, leaving the reader to retype the question themselves is
+ * making them do the work of a button.
+ *
+ * So the retry is user-initiated, visible in the transcript as a new turn, and
+ * it carries the specific faults into the new prompt — a plain re-run rolls the
+ * dice again, while naming 무상한 배상 and 반도체 부종 gives the model something
+ * to avoid. The bad answer stays on screen above the new one. Nothing is
+ * overwritten, which is the part that mattered all along.
  */
 
 const KIND_LABEL: Record<string, string> = {
@@ -31,9 +45,12 @@ const KIND_LABEL: Record<string, string> = {
 export default function AnswerCheck({
   answer,
   sourcePaths,
+  onRetry,
 }: {
   answer: string;
   sourcePaths: string[];
+  /** Absent while a run is in flight, which is when retrying is meaningless. */
+  onRetry?: (faults: string[]) => void;
 }) {
   const [review, setReview] = useState<AnswerReview | null>(null);
   const [failed, setFailed] = useState(false);
@@ -67,13 +84,21 @@ export default function AnswerCheck({
   }
 
   if (!review) {
+    // Naming the agent while it works, not just afterwards: a spinner labelled
+    // "검수 중" looks like the page thinking, and this is a second agent on
+    // another machine spending another model call. That should be visible while
+    // it happens, because it is what the wait is for.
     return (
       <p className="flex items-center gap-1.5 px-1 text-[11px] text-ink-soft">
         <span className="size-2.5 animate-spin rounded-full border-[1.5px] border-line border-t-ink-soft" />
-        검수 중…
+        검수 에이전트가 읽는 중…
       </p>
     );
   }
+
+  const by = review.reviewer
+    ? `${review.reviewer.upstream} 검수`
+    : "검수";
 
   const problems = [
     ...review.mechanical.map((m) => ({ tag: "손상", text: m.label, quote: m.evidence })),
@@ -96,7 +121,7 @@ export default function AnswerCheck({
   if (problems.length === 0) {
     return (
       <p className="px-1 text-[11px] text-ink-soft">
-        {review.ran ? "검수 통과" : "검수 미실행 — 확인되지 않았습니다"}
+        {review.ran ? `${by} 통과` : "검수 미실행 — 확인되지 않았습니다"}
         {unsourced.length > 0 && (
           <>
             {" · "}
@@ -127,6 +152,9 @@ export default function AnswerCheck({
         </svg>
         이 답변에 문제 {problems.length}건 — 그대로 쓰지 마세요
       </p>
+      <p className="mt-0.5 text-[11px] text-ink-soft">
+        {by} · 답변을 쓴 에이전트와 다른 모델이 확인했습니다
+      </p>
       <ul className="mt-2 flex flex-col gap-1.5">
         {problems.map((p, i) => (
           <li key={i} className="text-xs leading-snug">
@@ -146,6 +174,21 @@ export default function AnswerCheck({
         <p className="mt-2 border-t border-line pt-2 text-[11px] text-ink-soft">
           문서에 없는 수치: {unsourced.slice(0, 8).join(", ")} — 제안값이면 정상입니다.
         </p>
+      )}
+      {onRetry && (
+        <div className="mt-2.5 flex items-center gap-2 border-t border-line pt-2.5">
+          <button
+            onClick={() =>
+              onRetry(problems.map((p) => (p.quote ? `${p.quote} — ${p.text}` : p.text)))
+            }
+            className="rounded-lg border border-line bg-surface px-2.5 py-1 text-xs transition-colors hover:border-accent hover:text-accent"
+          >
+            이 문제들을 알려주고 다시 작성
+          </button>
+          <span className="text-[11px] text-ink-soft">
+            위 답변은 지우지 않고 아래에 새로 붙습니다.
+          </span>
+        </div>
       )}
     </section>
   );

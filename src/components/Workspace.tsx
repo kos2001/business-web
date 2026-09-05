@@ -23,6 +23,7 @@ export default function Workspace({
   starters,
   actions,
   corpus,
+  agent,
   nav,
 }: {
   slug: string;
@@ -33,6 +34,8 @@ export default function Workspace({
   actions?: { id: "report"; label: string; hint: string }[];
   /** Contract workspaces can file an upload as precedent. */
   corpus?: boolean;
+  /** Named on the trace so the answer is attributable. */
+  agent: { name: string; model: string };
   nav: NavItem[];
 }) {
   // One session id per workspace per conversation. It scopes hermes's long-term
@@ -114,6 +117,26 @@ export default function Workspace({
     (acc, t, i) => (t.role === "user" ? i : acc),
     -1,
   );
+
+  /**
+   * Asks the question again, naming what was wrong with the last answer.
+   *
+   * The faults go into the prompt rather than being fixed in place. A plain
+   * re-run is a second roll of the same dice; telling the model that it wrote
+   * 무상한 배상 and 반도체 부종 gives it something specific to avoid. The
+   * original question leads, because the task has not changed — only the
+   * warning has been added.
+   */
+  function retryWithFaults(question: string, faults: string[]) {
+    if (busy) return;
+    const listed = faults.slice(0, 8).map((f) => `- ${f}`).join("\n");
+    void run.send(
+      `${question}\n\n앞서 같은 요청에 대한 답변에서 아래 문제가 발견되었습니다. ` +
+        `같은 실수를 반복하지 말고 처음부터 다시 작성해 주세요. 특히 맞춤법과 ` +
+        `수치 표기를 출력 전에 스스로 점검하세요.\n${listed}`,
+      protect,
+    );
+  }
 
   function submit() {
     const text = draft.trim();
@@ -425,6 +448,15 @@ export default function Workspace({
                       // before this one.
                       run.turns[i - 1]?.sourcePaths ?? []
                     }
+                    onRetry={
+                      // Only the newest answer can be retried, and only while
+                      // nothing is running. Offering it on an old turn would
+                      // append a reply to a question two exchanges back, which
+                      // reads as the agent losing its place.
+                      !busy && i === run.turns.length - 1 && run.turns[i - 1]
+                        ? (faults) => retryWithFaults(run.turns[i - 1].text, faults)
+                        : undefined
+                    }
                   />
                   <ActionCapture answer={turn.text} workspace={slug} />
                 </>
@@ -438,6 +470,7 @@ export default function Workspace({
                   tools={run.tools}
                   running={busy}
                   startedAt={run.startedAt}
+                  agent={agent}
                 />
               )}
               </Fragment>

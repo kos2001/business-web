@@ -162,6 +162,14 @@ export function createAction(input: NewAction): ActionItem {
 export interface ListFilter {
   status?: ActionStatus | "active";
   workspace?: string;
+  /**
+   * Several workspaces at once — a domain's worth.
+   *
+   * A stage dashboard asks "what is outstanding in 계약", and 계약 is four
+   * workspaces. Looping `workspace` four times and merging in JS would lose the
+   * ordering the query is responsible for, so the set goes into the SQL.
+   */
+  workspaces?: readonly string[];
 }
 
 /**
@@ -181,6 +189,16 @@ export function listActions(filter: ListFilter = {}): ActionItem[] {
   if (filter.workspace) {
     where.push("workspace = @workspace");
     params.workspace = filter.workspace;
+  }
+  if (filter.workspaces) {
+    // An empty set means "no workspaces", which must return nothing rather than
+    // everything — an `IN ()` is a syntax error, so it is spelled out.
+    if (filter.workspaces.length === 0) return [];
+    const names = filter.workspaces.map((_, i) => `@ws${i}`);
+    where.push(`workspace IN (${names.join(",")})`);
+    filter.workspaces.forEach((w, i) => {
+      params[`ws${i}`] = w;
+    });
   }
 
   const rows = conn()
@@ -246,8 +264,8 @@ export interface ActionSummary {
 }
 
 /** Counts for the dashboard. Overdue is the number that should drive behaviour. */
-export function summarise(): ActionSummary {
-  const items = listActions();
+export function summarise(filter: ListFilter = {}): ActionSummary {
+  const items = listActions(filter);
   const today = new Date().toISOString().slice(0, 10);
   const weekEnd = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
   const active = (i: ActionItem) => i.status === "open" || i.status === "in_progress";

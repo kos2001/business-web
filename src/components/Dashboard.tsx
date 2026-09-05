@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { STAGE_META } from "@/lib/stage-meta";
+import { STAGES } from "@/lib/agents";
 import type { ActionItem, ActionStatus, ActionSummary } from "@/lib/actions";
 import type { Stage } from "@/lib/agents";
 
@@ -154,6 +155,34 @@ export default function Dashboard({ workspaces }: { workspaces: WorkspaceMeta[] 
             워크스페이스로 →
           </Link>
         </div>
+
+        {/* Per-domain dashboards. This page answers "everything outstanding",
+            which is the right first question and the wrong second one: acting
+            on 계약 means seeing 계약 alone, with its own workspaces and its own
+            idea of what is urgent. The counts here are the domains that have
+            something in them, so the row does not read as seven empty links. */}
+        {summary && (
+          <nav aria-label="업무별 현황" className="mt-3 flex flex-wrap gap-1.5">
+            {STAGES.map((stage) => {
+              const n = Object.entries(summary.byWorkspace)
+                .filter(([slug]) => workspaces.find((w) => w.slug === slug)?.stage === stage)
+                .reduce((acc, [, count]) => acc + count, 0);
+              return (
+                <Link
+                  key={stage}
+                  href={`/dashboard/${encodeURIComponent(stage)}`}
+                  className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1 text-xs transition-colors hover:border-accent"
+                  style={{ borderLeftWidth: 3, borderLeftColor: STAGE_META[stage].color }}
+                >
+                  {stage}
+                  <span className={`tabular-nums ${n > 0 ? "font-medium" : "text-ink-soft/60"}`}>
+                    {n}
+                  </span>
+                </Link>
+              );
+            })}
+          </nav>
+        )}
 
         {loading ? (
           <p className="mt-6 text-sm text-ink-soft">불러오는 중…</p>
