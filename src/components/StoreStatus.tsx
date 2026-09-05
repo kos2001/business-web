@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import PageHeader from "./PageHeader";
+import FindingCard from "./FindingCard";
 import type { StoreStatus } from "@/lib/store-status";
 
 /**
@@ -34,12 +36,6 @@ function when(iso: string | null): string {
   if (mins < 60 * 24) return `${Math.round(mins / 60)}시간 전`;
   return `${Math.round(mins / 1440)}일 전`;
 }
-
-const SEVERITY_COLOR: Record<string, string> = {
-  urgent: "var(--color-warn)",
-  attention: "var(--color-accent)",
-  info: "var(--color-line)",
-};
 
 export default function StoreStatusView() {
   const [data, setData] = useState<StoreStatus | null>(null);
@@ -81,22 +77,11 @@ export default function StoreStatusView() {
 
   return (
     <main className="page-enter flex min-w-0 flex-1 flex-col overflow-y-auto">
-      <div className="border-b border-line bg-surface">
-        <div className="mx-auto w-full max-w-3xl px-6 pb-8 pt-12">
-          <nav aria-label="위치" className="text-xs text-ink-soft">
-            <Link href="/" className="hover:text-accent hover:underline">
-              전체 업무
-            </Link>
-          </nav>
-          <h1 className="mt-1 text-[28px] font-semibold leading-tight tracking-tight">
-            문서와 저장소
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-soft">
-            검토가 근거로 쓰는 선례, 아직 쓰이지 않은 임시 파일, 담긴 액션이 어디에
-            얼마나 있는지. 문제가 있으면 맨 위에 나옵니다.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="문서와 저장소"
+        lead="검토가 근거로 쓰는 선례, 아직 쓰이지 않은 임시 파일, 담긴 액션이 어디에 얼마나 있는지. 문제가 있으면 맨 위에 나옵니다."
+        crumbs={[{ label: "전체 업무", href: "/" }]}
+      />
 
       <div className="mx-auto w-full max-w-3xl px-6 pb-12">
         {loading ? (
@@ -112,25 +97,12 @@ export default function StoreStatusView() {
                 </h2>
                 <ul className="mt-2 flex flex-col gap-2">
                   {data.findings.map((f) => (
-                    <li
+                    <FindingCard
                       key={f.title}
-                      className="rounded-xl border bg-surface px-3.5 py-3"
-                      style={{
-                        borderColor: "var(--color-line)",
-                        borderLeftWidth: 3,
-                        borderLeftColor: SEVERITY_COLOR[f.severity],
-                      }}
-                    >
-                      <p
-                        className="text-sm font-medium"
-                        style={
-                          f.severity === "urgent" ? { color: "var(--color-warn)" } : undefined
-                        }
-                      >
-                        {f.title}
-                      </p>
-                      <p className="mt-0.5 text-xs leading-relaxed text-ink-soft">{f.why}</p>
-                    </li>
+                      severity={f.severity}
+                      title={f.title}
+                      why={f.why}
+                    />
                   ))}
                 </ul>
               </section>

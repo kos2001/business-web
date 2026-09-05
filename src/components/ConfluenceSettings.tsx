@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import PageHeader from "./PageHeader";
 
 /**
  * How to connect Confluence, and whether it is connected.
@@ -83,37 +83,25 @@ export default function ConfluenceSettings() {
 
   return (
     <main className="page-enter flex min-w-0 flex-1 flex-col overflow-y-auto">
-      <div className="border-b border-line bg-surface">
-        <div className="mx-auto w-full max-w-3xl px-6 pb-8 pt-12">
-          <nav aria-label="위치" className="text-xs text-ink-soft">
-            <Link href="/" className="hover:text-accent hover:underline">
-              전체 업무
-            </Link>
-          </nav>
-          <h1 className="mt-1 text-[28px] font-semibold leading-tight tracking-tight">
-            Confluence 연결
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-soft">
-            계약서가 파일이 아니라 위키 페이지로 올 때, 주소만 붙여넣으면 본문과 표를
-            그대로 가져옵니다. 연결하면 워크스페이스에 &lsquo;주소로 가져오기&rsquo;가
-            나타납니다.
+      <PageHeader
+        title="Confluence 연결"
+        lead="계약서가 파일이 아니라 위키 페이지로 올 때, 주소만 붙여넣으면 본문과 표를 그대로 가져옵니다. 연결하면 워크스페이스에 ‘주소로 가져오기’가 나타납니다."
+        crumbs={[{ label: "전체 업무", href: "/" }]}
+      >
+        {status && (
+          <p
+            className="mt-4 inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs"
+            style={{
+              borderColor: status.configured ? "var(--color-accent)" : "var(--color-line)",
+              color: status.configured ? "var(--color-accent)" : "var(--color-ink-soft)",
+            }}
+          >
+            {status.configured
+              ? `연결됨 · ${status.host} · ${cloud ? "Cloud" : "Data Center"} 방식`
+              : "아직 연결되지 않았습니다"}
           </p>
-
-          {status && (
-            <p
-              className="mt-4 inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs"
-              style={{
-                borderColor: status.configured ? "var(--color-accent)" : "var(--color-line)",
-                color: status.configured ? "var(--color-accent)" : "var(--color-ink-soft)",
-              }}
-            >
-              {status.configured
-                ? `연결됨 · ${status.host} · ${cloud ? "Cloud" : "Data Center"} 방식`
-                : "아직 연결되지 않았습니다"}
-            </p>
-          )}
-        </div>
-      </div>
+        )}
+      </PageHeader>
 
       <div className="mx-auto w-full max-w-3xl px-6 pb-12">
         <section className="mt-8">
