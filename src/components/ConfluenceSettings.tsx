@@ -103,7 +103,7 @@ export default function ConfluenceSettings() {
         )}
       </PageHeader>
 
-      <div className="mx-auto w-full max-w-3xl px-6 pb-12">
+      <div className="mx-auto w-full max-w-4xl px-6 pb-12">
         <section className="mt-8">
           <h2 className="text-[11px] font-semibold tracking-wide text-ink-soft">현재 설정</h2>
           {status ? (

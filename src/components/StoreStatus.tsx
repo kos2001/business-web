@@ -83,7 +83,7 @@ export default function StoreStatusView() {
         crumbs={[{ label: "전체 업무", href: "/" }]}
       />
 
-      <div className="mx-auto w-full max-w-3xl px-6 pb-12">
+      <div className="mx-auto w-full max-w-4xl px-6 pb-12">
         {loading ? (
           <p className="mt-6 text-sm text-ink-soft">불러오는 중…</p>
         ) : !data ? (

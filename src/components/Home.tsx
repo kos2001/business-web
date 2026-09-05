@@ -6,7 +6,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { STAGES, type Stage } from "@/lib/agents";
 import { STAGE_META } from "@/lib/stage-meta";
 import StageIcon from "./StageIcon";
-import Sidebar, { type HealthMap, type NavItem } from "./Sidebar";
+import AppShell from "./AppShell";
+import type { HealthMap, NavItem } from "./Sidebar";
 import { readRecents } from "@/lib/recents";
 
 export interface HomeAgent {
@@ -123,8 +124,7 @@ export default function Home({ agents }: { agents: HomeAgent[] }) {
   const degraded = agents.filter((a) => health[a.slug]?.state === "degraded");
 
   return (
-    <div className="flex h-dvh">
-      <Sidebar nav={nav} health={health} recents={recents} />
+    <AppShell nav={nav} health={health} recents={recents}>
 
       <main className="page-enter flex min-w-0 flex-1 flex-col overflow-y-auto">
         {/* A banded hero. The home board and a workspace previously shared the
@@ -373,6 +373,6 @@ export default function Home({ agents }: { agents: HomeAgent[] }) {
           </footer>
         </div>
       </main>
-    </div>
+    </AppShell>
   );
 }

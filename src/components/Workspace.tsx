@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { Fragment, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useRun, type Attachment } from "./useRun";
-import Sidebar, { type HealthMap, type NavItem } from "./Sidebar";
+import AppShell from "./AppShell";
+import type { HealthMap, NavItem } from "./Sidebar";
 import StageIcon from "./StageIcon";
 import ActivityTrace from "./ActivityTrace";
 import CorpusPanel from "./CorpusPanel";
@@ -353,27 +354,26 @@ export default function Workspace({
           {uploading ? "올리는 중…" : docFirst ? "계약서 올리기" : "문서 올리기"}
         </span>
         <span className="mt-0.5 block text-xs leading-relaxed text-ink-soft">
-          끌어다 놓아도 됩니다. PDF·워드·한글·엑셀·이미지, 한 개당 25MB까지.
+          끌어다 놓아도 됩니다. PDF·워드·엑셀·이미지, 한 개당 25MB까지.
         </span>
       </span>
     </button>
   );
 
   return (
-    <div className="flex h-dvh">
-      <Sidebar
-        nav={nav}
-        slug={slug}
-        stage={stage}
-        health={health}
-        recents={recents}
-        onReset={() => {
-          run.reset();
-          setFiles([]);
-          setUploadError(null);
-          setSessionId(newSessionId(slug));
-        }}
-      />
+    <AppShell
+      nav={nav}
+      slug={slug}
+      stage={stage}
+      health={health}
+      recents={recents}
+      onReset={() => {
+        run.reset();
+        setFiles([]);
+        setUploadError(null);
+        setSessionId(newSessionId(slug));
+      }}
+    >
 
       <main key={slug} className="page-enter flex min-w-0 flex-1 flex-col">
         <header className="flex items-center gap-3 border-b border-line bg-surface px-6 py-3">
@@ -825,7 +825,7 @@ export default function Workspace({
           </div>
         </footer>
       </main>
-    </div>
+    </AppShell>
   );
 }
 
