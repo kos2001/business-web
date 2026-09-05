@@ -179,13 +179,16 @@ export default function AppShell({
         onToggleCollapsed={toggleCollapsed}
       />
 
-      {/* The page owns its top-right corner. Positioned rather than stacked so
-          it costs no vertical space: every page's header band has an empty
-          right half, which is the room the sidebar did not have. Hidden below
-          the sidebar's breakpoint, where the narrow bar carries them instead. */}
-      <div className="relative flex min-w-0 flex-1 flex-col">
-        <div className="pointer-events-none absolute right-0 top-0 z-20 hidden p-3 sm:block">
-          <div className="pointer-events-auto flex items-center gap-0.5">
+      {/* A real row above the page, not a floating one.
+          It was positioned at first, to cost no vertical space — and scrolled
+          content then passed underneath it, which is worse than the ~44px it
+          was saving. Sitting outside the scroll container, it is always
+          reachable and can never overlap anything.
+          Hidden below the sidebar's breakpoint, where the narrow bar carries
+          the same links. */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="hidden shrink-0 justify-end border-b border-line bg-surface px-3 py-1 sm:flex">
+          <div className="flex items-center gap-0.5">
             {/* The name under the icon, not only in a tooltip. Five unlabelled
                 glyphs in a corner are a guessing game until you have learned
                 them, and this is where someone lands who does not know the app
