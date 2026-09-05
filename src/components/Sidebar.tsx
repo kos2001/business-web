@@ -286,6 +286,12 @@ export default function Sidebar({
           다음 액션
         </Link>
         <Link
+          href="/stores"
+          className="block rounded-md px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas hover:text-ink"
+        >
+          문서와 저장소
+        </Link>
+        <Link
           href="/settings/access"
           className="block rounded-md px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas hover:text-ink"
         >
