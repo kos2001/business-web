@@ -30,7 +30,7 @@
 
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -151,7 +151,21 @@ export async function extractTables(source: string): Promise<string | null> {
       timeout: TIMEOUT_MS,
       maxBuffer: 1024 * 1024,
     });
-    return existsSync(target) ? target : null;
+    if (!existsSync(target)) return null;
+    // A document with no tables still produces a file, holding "[]". Naming it
+    // in the prompt tells the agent a table exists and spends a read finding
+    // out it does not — meeting notes and letters have no tables, and most of
+    // what gets uploaded is one of those.
+    try {
+      const parsed: unknown = JSON.parse(await readFile(target, "utf8"));
+      if (Array.isArray(parsed) && parsed.length === 0) {
+        await rm(target, { force: true });
+        return null;
+      }
+    } catch {
+      // Unreadable or not JSON — hand it over rather than guess it is empty.
+    }
+    return target;
   } catch {
     return null;
   }

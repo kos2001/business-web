@@ -139,6 +139,38 @@ const DUE_RE =
   /(?:기한|due|까지)\s*[:：]?\s*(\d{4}-\d{2}-\d{2})|(\d{4}-\d{2}-\d{2})\s*까지/i;
 
 /**
+ * Short Korean dates — "9/12까지", "9월 12일까지".
+ *
+ * Meeting notes write dates this way and never in full ISO, so every follow-up
+ * out of a 회의록 landed with 기한 미정 while the answer plainly said 9/12. The
+ * dashboard chases overdue items by date; a missing one is an item nobody
+ * chases.
+ *
+ * The year is the part that is genuinely absent. Rather than guess blindly,
+ * the nearest sensible year is used: the same year unless that puts the date
+ * more than three months in the past, in which case it is next year — which is
+ * how "1월 5일" written in December is meant. The resolved date is shown in the
+ * row, so a wrong inference is visible against the source rather than silent.
+ */
+const SHORT_DUE_RE = /(?:^|[^\d])(\d{1,2})\s*(?:\/|월\s*)(\d{1,2})\s*(?:일)?\s*까지/;
+
+export function resolveShortDue(line: string, now = new Date()): string | null {
+  const m = SHORT_DUE_RE.exec(line);
+  if (!m) return null;
+  const month = Number(m[1]);
+  const day = Number(m[2]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+  const year = now.getFullYear();
+  const candidate = new Date(Date.UTC(year, month - 1, day));
+  if (candidate.getUTCMonth() !== month - 1) return null; // 2/30 and friends
+  const threeMonthsAgo = new Date(now.getTime() - 92 * 86_400_000);
+  const resolved =
+    candidate < threeMonthsAgo ? new Date(Date.UTC(year + 1, month - 1, day)) : candidate;
+  return resolved.toISOString().slice(0, 10);
+}
+
+/**
  * A request or an obligation, written politely — "…확인이 필요합니다",
  * "…확정해야 합니다", "…검토 부탁드립니다", "…발송해 주세요".
  *
@@ -222,10 +254,11 @@ export function extractCandidates(answer: string, limit = 12): ActionCandidate[]
     seen.add(title);
 
     const dueMatch = DUE_RE.exec(raw);
+    const due = dueMatch ? (dueMatch[1] ?? dueMatch[2] ?? null) : resolveShortDue(raw);
     out.push({
       title: title.slice(0, 200),
       owner: OWNER_RE.exec(raw)?.[1] ?? null,
-      due: dueMatch ? (dueMatch[1] ?? dueMatch[2] ?? null) : null,
+      due,
       sourceText: raw.trim().slice(0, 400),
     });
     if (out.length >= limit) break;

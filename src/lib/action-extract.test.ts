@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractCandidates } from "./action-extract";
+import { extractCandidates, resolveShortDue } from "./action-extract";
 
 /** A shape the discovery playbook actually produces. */
 const DISCOVERY = `
@@ -197,5 +197,51 @@ describe("영문 답변", () => {
   it("also accepts Next steps", () => {
     const answer = `## Next steps\n- Confirm the signing date\n`;
     expect(extractCandidates(answer)).toHaveLength(1);
+  });
+});
+
+describe("짧은 한국어 날짜", () => {
+  const NOW = new Date("2026-09-05T00:00:00Z");
+
+  it("9/12까지 를 읽는다", () => {
+    // Meeting notes write dates this way and never in ISO, so every follow-up
+    // out of a 회의록 landed with 기한 미정 while the answer said 9/12.
+    expect(resolveShortDue("샘플 3개 발송 (9/12까지, 당사)", NOW)).toBe("2026-09-12");
+  });
+
+  it("9월 19일까지 도 읽는다", () => {
+    expect(resolveShortDue("측정 데이터 제공 9월 19일까지", NOW)).toBe("2026-09-19");
+  });
+
+  it("한참 지난 날짜는 내년으로 읽는다", () => {
+    // "1월 5일" written in September means next January, not last.
+    expect(resolveShortDue("1/5까지 회신", NOW)).toBe("2027-01-05");
+  });
+
+  it("갓 지난 날짜는 올해로 둔다 — 늦은 것이지 내년이 아니다", () => {
+    expect(resolveShortDue("8/28까지 제출", NOW)).toBe("2026-08-28");
+  });
+
+  it("있을 수 없는 날짜는 거부한다", () => {
+    expect(resolveShortDue("2/30까지", NOW)).toBeNull();
+    expect(resolveShortDue("13/40까지", NOW)).toBeNull();
+  });
+
+  it("까지 가 없으면 날짜로 보지 않는다", () => {
+    // "3/4 분기" and "9/12 비율" are not deadlines.
+    expect(resolveShortDue("3/4 분기 실적", NOW)).toBeNull();
+  });
+
+  it("추출된 액션에 기한이 붙는다", () => {
+    const answer = `## 다음 액션\n- 샘플 3개 발송 (9/12까지, 당사)\n- 측정 데이터 제공 (9월 19일까지)\n`;
+    expect(extractCandidates(answer).map((c) => c.due)).toEqual([
+      resolveShortDue("9/12까지"),
+      resolveShortDue("9월 19일까지"),
+    ]);
+  });
+
+  it("ISO 날짜가 있으면 그쪽을 쓴다", () => {
+    const answer = `## 다음 액션\n- 법무 검토 요청 기한: 2026-10-01\n`;
+    expect(extractCandidates(answer)[0].due).toBe("2026-10-01");
   });
 });
