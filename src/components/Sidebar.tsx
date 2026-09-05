@@ -50,6 +50,7 @@ export default function Sidebar({
   health,
   recents,
   onReset,
+  forceVisible = false,
 }: {
   nav: NavItem[];
   /** Empty on the home board, where no workspace is open. */
@@ -61,6 +62,11 @@ export default function Sidebar({
   recents?: string[];
   /** Absent on the home board, which has no conversation to reset. */
   onReset?: () => void;
+  /**
+   * Shows it below the breakpoint where it normally hides — the narrow-screen
+   * drawer. One nav rendered two ways rather than two navs to keep in step.
+   */
+  forceVisible?: boolean;
 }) {
   // Deterministic first paint — server and client agree that only the active
   // domain is open. Anything read from localStorage has to land after mount or
@@ -107,7 +113,11 @@ export default function Sidebar({
     .slice(0, 5);
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-line bg-surface sm:flex">
+    <aside
+      className={`w-64 shrink-0 flex-col border-r border-line bg-surface ${
+        forceVisible ? "flex h-full" : "hidden sm:flex"
+      }`}
+    >
       <Link
         href="/"
         aria-current={slug ? undefined : "page"}

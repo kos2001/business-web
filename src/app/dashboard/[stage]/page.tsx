@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { AGENTS, STAGES, type Stage } from "@/lib/agents";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
 import StageDashboard from "@/components/StageDashboard";
 
 /**
@@ -29,9 +29,8 @@ export default async function Page({ params }: { params: Promise<{ stage: string
   }));
 
   return (
-    <div className="flex h-dvh">
-      <Sidebar nav={nav} health={{}} />
+    <AppShell nav={nav} health={{}}>
       <StageDashboard stage={stage as Stage} workspaces={workspaces} />
-    </div>
+    </AppShell>
   );
 }

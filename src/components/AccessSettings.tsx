@@ -87,7 +87,7 @@ export default function AccessSettings() {
         crumbs={[{ label: "전체 업무", href: "/" }]}
       />
 
-      <div className="mx-auto w-full max-w-3xl px-6 pb-12 pt-2">
+      <div className="mx-auto w-full max-w-4xl px-6 pb-12 pt-2">
       {!data.authConfigured && (
         <p className="mt-4 rounded-lg border border-warn/40 bg-warn/5 px-3.5 py-3 text-sm leading-relaxed text-warn">
           <strong className="font-medium">SSO 가 설정되지 않았습니다.</strong>{" "}
