@@ -128,6 +128,36 @@ export async function ingestDocument(
   };
 }
 
+/**
+ * Rebuilds the index over whatever is already in `documents/`.
+ *
+ * `ingestDocument` re-indexes as a side effect of adding a file, which covers
+ * the normal path and nothing else. A file copied into the directory by hand —
+ * or an ingest that failed halfway — leaves documents on disk that search will
+ * never return, and until now there was no way to fix that from the app.
+ */
+export async function reindexCorpus(): Promise<IngestResult> {
+  if (!corpusAvailable()) {
+    return { ok: false, documents: 0, message: "docparser가 설치되어 있지 않습니다." };
+  }
+  const docs = await corpusDocuments();
+  if (docs.length === 0) {
+    return { ok: false, documents: 0, message: "색인할 문서가 없습니다." };
+  }
+  try {
+    await run(join(DOCPARSER_DIR, ".venv", "bin", "docparser"), ["ingest", DOCS_DIR], {
+      cwd: DOCPARSER_DIR,
+      env: env(),
+      timeout: INGEST_TIMEOUT_MS,
+      maxBuffer: 8 * 1024 * 1024,
+    });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message.slice(0, 160) : "";
+    return { ok: false, documents: docs.length, message: `색인에 실패했습니다. ${detail}` };
+  }
+  return { ok: true, documents: docs.length, message: `색인 완료 — 계약서 ${docs.length}건` };
+}
+
 export interface CorpusHit {
   /** The matched passage. */
   text: string;

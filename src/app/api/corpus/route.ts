@@ -4,6 +4,7 @@ import {
   corpusDocuments,
   corpusIndexed,
   ingestDocument,
+  reindexCorpus,
   searchCorpus,
 } from "@/lib/corpus";
 
@@ -19,8 +20,12 @@ export async function GET() {
 }
 
 interface Body {
-  /** "search" queries the corpus; "ingest" adds a staged upload to it. */
-  action?: "search" | "ingest";
+  /**
+   * "search" queries the corpus, "ingest" adds a staged upload, "reindex"
+   * rebuilds over what is already filed — the fix when a document is on disk
+   * but absent from search.
+   */
+  action?: "search" | "ingest" | "reindex";
   query?: string;
   topK?: number;
   path?: string;
@@ -40,6 +45,11 @@ export async function POST(req: Request) {
       { error: "docparser가 설치되어 있지 않습니다." },
       { status: 503 },
     );
+  }
+
+  if (body.action === "reindex") {
+    const result = await reindexCorpus();
+    return NextResponse.json(result, { status: result.ok ? 200 : 500 });
   }
 
   if (body.action === "ingest") {
