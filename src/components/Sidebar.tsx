@@ -51,6 +51,8 @@ export default function Sidebar({
   recents,
   onReset,
   forceVisible = false,
+  collapsed = false,
+  onToggleCollapsed,
 }: {
   nav: NavItem[];
   /** Empty on the home board, where no workspace is open. */
@@ -67,6 +69,15 @@ export default function Sidebar({
    * drawer. One nav rendered two ways rather than two navs to keep in step.
    */
   forceVisible?: boolean;
+  /**
+   * Folded to an icon rail.
+   *
+   * A rail rather than nothing: hiding the nav outright also hides which domain
+   * you are standing in, and that orientation is most of what a sidebar is for.
+   * The rail gives back roughly 200px and keeps it.
+   */
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }) {
   // Deterministic first paint — server and client agree that only the active
   // domain is open. Anything read from localStorage has to land after mount or
@@ -112,32 +123,83 @@ export default function Sidebar({
     .filter((n): n is NavItem => Boolean(n))
     .slice(0, 5);
 
+  // The drawer is never a rail: it opens because there is no room for a
+  // sidebar, and a rail inside it would be a nav folded twice.
+  const rail = collapsed && !forceVisible;
+
   return (
     <aside
-      className={`w-64 shrink-0 flex-col border-r border-line bg-surface ${
-        forceVisible ? "flex h-full" : "hidden sm:flex"
-      }`}
+      className={`shrink-0 flex-col border-r border-line bg-surface transition-[width] duration-150 ${
+        collapsed && !forceVisible ? "w-14" : "w-64"
+      } ${forceVisible ? "flex h-full" : "hidden sm:flex"}`}
     >
-      <Link
-        href="/"
-        aria-current={slug ? undefined : "page"}
-        className={`flex items-center gap-2 border-b border-line px-4 py-3.5 hover:bg-canvas ${
-          slug ? "" : "bg-canvas"
-        }`}
-      >
-        <span className="flex size-6 items-center justify-center rounded-md bg-accent text-[11px] font-bold text-white">
-          영
-        </span>
-        <span className="min-w-0">
-          <span className="block text-sm font-semibold leading-tight">
-            영업 에이전트
+      {rail ? (
+        <div className="flex flex-col items-center gap-1 border-b border-line py-3">
+          <Link
+            href="/"
+            aria-current={slug ? undefined : "page"}
+            title="전체 업무 보기"
+            className="flex size-8 items-center justify-center rounded-md hover:bg-canvas"
+          >
+            <span className="flex size-6 items-center justify-center rounded-md bg-accent text-[11px] font-bold text-white">
+              영
+            </span>
+          </Link>
+        </div>
+      ) : (
+        <Link
+          href="/"
+          aria-current={slug ? undefined : "page"}
+          className={`flex items-center gap-2 border-b border-line px-4 py-3.5 hover:bg-canvas ${
+            slug ? "" : "bg-canvas"
+          }`}
+        >
+          <span className="flex size-6 items-center justify-center rounded-md bg-accent text-[11px] font-bold text-white">
+            영
           </span>
-          <span className="block text-[11px] leading-tight text-ink-soft">
-            전체 업무 보기
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold leading-tight">
+              영업 에이전트
+            </span>
+            <span className="block text-[11px] leading-tight text-ink-soft">
+              전체 업무 보기
+            </span>
           </span>
-        </span>
-      </Link>
+        </Link>
+      )}
 
+      {rail ? (
+        // Stage icons only. Clicking one opens the sidebar on that domain,
+        // which is what someone reaching for a collapsed nav is after.
+        <nav className="flex flex-1 flex-col items-center gap-1 overflow-y-auto py-3">
+          {STAGES.map((s2) => {
+            const meta2 = STAGE_META[s2];
+            const active = stage === s2;
+            return (
+              <button
+                key={s2}
+                onClick={() => {
+                  setClosed(STAGES.filter((x) => x !== s2));
+                  onToggleCollapsed?.();
+                }}
+                title={`${s2} — ${meta2.what}`}
+                aria-label={s2}
+                className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-canvas"
+                style={
+                  active
+                    ? {
+                        color: meta2.color,
+                        backgroundColor: `color-mix(in srgb, ${meta2.color} 12%, transparent)`,
+                      }
+                    : { color: "var(--color-ink-soft)" }
+                }
+              >
+                <StageIcon stage={s2} className="size-4" />
+              </button>
+            );
+          })}
+        </nav>
+      ) : (
       <div className="flex flex-1 flex-col overflow-y-auto">
       <nav className="flex flex-col gap-0.5 px-2.5 py-3">
         {STAGES.map((s) => {
@@ -267,8 +329,56 @@ export default function Sidebar({
         </div>
       )}
       </div>
+      )}
 
       <div className="border-t border-line p-2.5">
+        {/* The toggle lives with the nav it folds, at the bottom where it is out
+            of the way of the thing people actually came to click. */}
+        {onToggleCollapsed && (
+          <button
+            onClick={onToggleCollapsed}
+            title={rail ? "사이드바 펼치기" : "사이드바 접기"}
+            aria-label={rail ? "사이드바 펼치기" : "사이드바 접기"}
+            aria-expanded={!rail}
+            className={`mb-1.5 flex items-center gap-2 rounded-md py-1.5 text-xs text-ink-soft transition-colors hover:bg-canvas hover:text-ink ${
+              rail ? "w-full justify-center" : "w-full px-2.5"
+            }`}
+          >
+            <svg viewBox="0 0 16 16" fill="none" className="size-3.5 shrink-0" aria-hidden>
+              <path
+                d={rail ? "M6 3.5 10.5 8 6 12.5" : "M10 3.5 5.5 8 10 12.5"}
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {!rail && "접기"}
+          </button>
+        )}
+        {rail ? (
+          // Only the daily one survives the fold. The settings pages are visited
+          // once; putting five unlabelled icons in a 56px column to reach them
+          // trades a clear nav for a guessing game.
+          <Link
+            href="/dashboard"
+            title="다음 액션"
+            aria-label="다음 액션"
+            className="flex w-full justify-center rounded-md py-1.5 text-ink-soft hover:bg-canvas hover:text-ink"
+          >
+            <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden>
+              <path
+                d="M2.5 8.5 6 12l7.5-8"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </Link>
+        ) : (
+          <>
         {onReset && (
           <button
             onClick={onReset}
@@ -321,6 +431,8 @@ export default function Sidebar({
         >
           Confluence 연결
         </Link>
+          </>
+        )}
       </div>
     </aside>
   );
