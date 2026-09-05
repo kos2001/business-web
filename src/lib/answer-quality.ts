@@ -135,6 +135,25 @@ const SPLIT_WORDS: readonly (readonly [RegExp, string, string])[] = [
   [/안 건(?![가-힣])/g, "안 건", "안건"],
 ];
 
+/**
+ * Single-syllable substitutions that are not words in any context.
+ *
+ * The corruptions at the top of this file — 반돋시, 구조젹, 있忌 — are the same
+ * fault as the repetition loops, one syllable swapped for a neighbour. The
+ * cross-script ones are already caught. The Hangul-to-Hangul ones are not:
+ * 반돋시 is well-formed Hangul and only a dictionary would know it is wrong.
+ *
+ * So this is a table of ones actually observed, not an attempt at spell
+ * checking. Each is a string that occurs in no correct Korean sentence, which
+ * is what makes it safe to flag without meaning. New entries belong here when
+ * the defect store records them, not on suspicion.
+ */
+const CORRUPTIONS: readonly (readonly [string, string])[] = [
+  ["반돋시", "반드시"],
+  ["구조젹", "구조적"],
+  ["반드기", "반드시"],
+];
+
 /** Which of 률/율 belongs after `syllable`, or null if it is not Hangul. */
 export function expectedRateSuffix(syllable: string): "률" | "율" | null {
   const code = syllable.codePointAt(0);
@@ -198,6 +217,11 @@ export function inspectAnswer(text: string): QualityReport {
       misspelled.set(word, { correct: word.slice(0, -1) + expected, index: m.index });
     }
   }
+  for (const [wrong, correct] of CORRUPTIONS) {
+    const at = text.indexOf(wrong);
+    if (at !== -1) misspelled.set(wrong, { correct, index: at });
+  }
+
   for (const [re, wrong, correct] of SPLIT_WORDS) {
     re.lastIndex = 0;
     const m = re.exec(text);

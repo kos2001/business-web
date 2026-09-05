@@ -65,7 +65,13 @@ describe("inspectAnswer", () => {
 
   it("reports every distinct problem, not just the first", () => {
     const r = inspectAnswer(`${LOOP_RUN}\n준거법(準拠法) 조항이 없습니다.`);
-    expect(r.issues.map((i) => i.kind).sort()).toEqual(["foreign-script", "repetition"]);
+    // The corruption fixture also contains 구조젹, which the substitution table
+    // now names. Three findings on one broken answer, not two.
+    expect(r.issues.map((i) => i.kind).sort()).toEqual([
+      "foreign-script",
+      "orthography",
+      "repetition",
+    ]);
   });
 
   it("keeps the evidence short enough to show in one line", () => {
@@ -78,7 +84,9 @@ describe("inspectAnswer", () => {
 describe("summariseIssues", () => {
   it("joins the labels for a one-line warning", () => {
     const r = inspectAnswer(`${LOOP_RUN}\n準拠法`);
-    expect(summariseIssues(r.issues)).toBe("같은 글자가 반복되는 구간, 한자 3자");
+    expect(summariseIssues(r.issues)).toBe(
+      "같은 글자가 반복되는 구간, 한자 3자, 구조젹 → 구조적",
+    );
   });
 });
 
@@ -145,5 +153,21 @@ describe("붙여 써야 하는 말", () => {
       "지연한 경우 지연배상금을 지급한다. 3개월, 6개월, 12개월 단위로 본다. " +
       "어느 고객·어느 딜에서 들은 말인지 밝힌다.";
     expect(inspectAnswer(fine)).toEqual({ ok: true, issues: [] });
+  });
+});
+
+describe("음절이 바뀐 손상", () => {
+  it("catches 반돋시, which the store recorded from the contract workspace", () => {
+    expect(inspectAnswer("상한 신설이 반돋시 필요합니다.").issues).toEqual([
+      expect.objectContaining({ kind: "orthography", label: "반돋시 → 반드시" }),
+    ]);
+  });
+
+  it("catches the other observed substitutions", () => {
+    expect(inspectAnswer("구조젹으로 불리합니다.").issues[0].label).toBe("구조젹 → 구조적");
+  });
+
+  it("leaves the correct spellings alone", () => {
+    expect(inspectAnswer("상한 신설이 반드시 필요하고 구조적으로 불리합니다.").ok).toBe(true);
   });
 });
