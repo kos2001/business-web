@@ -56,8 +56,49 @@ function normalise(text: string): string {
     .toLowerCase();
 }
 
-/** `원문: "…"` and bare quoted spans long enough to be a claim about the text. */
-const QUOTE_RE = /(?:원문|인용)\s*[:：]\s*["“]([^"”]{10,400})["”]|["“]([^"”]{25,400})["”]/g;
+/**
+ * Which quoted spans are claims about the document.
+ *
+ * Not every quotation is one. A review of an unfavourable contract is mostly
+ * *proposed replacement wording* — 수정안: "보증기간은 납품일로부터 12개월로
+ * 한다." — which by definition is not in the document, and an earlier version
+ * of this check reported every one of them as a missing quotation. A panel that
+ * cries wolf on the agent doing its job is worse than no panel: the first live
+ * run produced eight false alarms and nothing true.
+ *
+ * So a quote counts only where the answer presents it as the source text:
+ * introduced by `원문:`/`인용:`, or set as a markdown blockquote, which is how
+ * the playbook's clause citations are rendered. Anything introduced as a
+ * proposal is skipped outright.
+ */
+const QUOTE_IN_LINE = /["“]([^"”]{10,400})["”]/g;
+const SOURCE_LEAD_RE = /(원문|인용)\s*[:：]/;
+const PROPOSAL_RE = /(수정안|제안|대안|권고|문안|신설|추가)\s*[:：]?/;
+
+/** Yields the spans a line offers as the document's own words. */
+function quotedClaims(answer: string): string[] {
+  const out: string[] = [];
+  for (const raw of answer.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    const isBlockquote = line.startsWith(">");
+    const lead = SOURCE_LEAD_RE.exec(line);
+    if (!isBlockquote && !lead) continue;
+
+    // "…원문은 이렇고, 수정안: '…'" — everything from the proposal onward is the
+    // agent's wording, not the contract's.
+    const proposal = PROPOSAL_RE.exec(line);
+    const cut = proposal ? line.slice(0, proposal.index) : line;
+    // A blockquote whose only content is a proposal has nothing left to check.
+    const body = lead ? cut.slice(lead.index + lead[0].length) : cut;
+
+    QUOTE_IN_LINE.lastIndex = 0;
+    for (let m = QUOTE_IN_LINE.exec(body); m; m = QUOTE_IN_LINE.exec(body)) {
+      out.push(m[1].trim());
+    }
+  }
+  return out;
+}
 
 /**
  * Figures that belong to the contract rather than to prose.
@@ -67,7 +108,9 @@ const QUOTE_RE = /(?:원문|인용)\s*[:：]\s*["“]([^"”]{10,400})["”]|["�
  * somewhere. Clause references are excluded outright — 제5조 is a pointer, not
  * a value, and the document is full of them.
  */
-const FIGURE_RE = /(\d[\d,]*(?:\.\d+)?)\s*(원|개|%|일|개월|년|만원|억원|배)/g;
+// Longer units first: with 개 ahead of 개월, "12개월" matches as "12개" and
+// is then reported as an unsourced quantity that nobody wrote.
+const FIGURE_RE = /(\d[\d,]*(?:\.\d+)?)\s*(개월|만원|억원|원|개|%|일|년|배)/g;
 const CLAUSE_REF_RE = /제\s*\d+\s*조/g;
 
 /** Numbers small enough to be ordinals rather than data. */
@@ -103,9 +146,7 @@ export function checkAgainstSource(answer: string, source: string): SourceReport
   const sourceFigures = figuresIn(source);
 
   let quotesChecked = 0;
-  QUOTE_RE.lastIndex = 0;
-  for (let m = QUOTE_RE.exec(answer); m; m = QUOTE_RE.exec(answer)) {
-    const quote = (m[1] ?? m[2] ?? "").trim();
+  for (const quote of quotedClaims(answer)) {
     if (!quote) continue;
     quotesChecked += 1;
     if (haystack.includes(normalise(quote))) continue;

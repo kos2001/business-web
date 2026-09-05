@@ -70,6 +70,50 @@ describe("checkAgainstSource", () => {
     expect(r.issues[0].kind).toBe("unsourced-number");
   });
 
+  it("does not flag proposed replacement wording as a missing quotation", () => {
+    // The false alarm that made the first live panel useless: a review of an
+    // unfavourable contract is mostly new wording, none of which is in the
+    // document, and every line of it was reported as a misquote.
+    const answer = `수정안: "보증기간은 납품일로부터 12개월로 한다. 간접손해는 부담하지 아니한다."`;
+    const r = checkAgainstSource(answer, SOURCE);
+    expect(r.ok).toBe(true);
+    expect(r.quotesChecked).toBe(0);
+  });
+
+  it("checks the 원문 half of a line and ignores the 수정안 half", () => {
+    const answer =
+      `원문: "을이 납기를 지연한 경우 지연 1일당 계약금액의 2.5%를 배상한다." ` +
+      `수정안: "지연배상은 1일당 0.1%로 하며 총액은 계약금액의 10%를 상한으로 한다."`;
+    const r = checkAgainstSource(answer, SOURCE);
+    expect(r.quotesChecked).toBe(1);
+    expect(r.ok).toBe(true);
+  });
+
+  it("checks a markdown blockquote, which is how clauses are cited", () => {
+    const answer = `**제5조 (지연배상) — 높음**
+> "을이 납기를 지연한 경우 지연 1일당 계약금액의 2.5%를 배상한다."`;
+    expect(checkAgainstSource(answer, SOURCE).quotesChecked).toBe(1);
+  });
+
+  it("catches a blockquote that misquotes the clause", () => {
+    const answer = `> "을이 납기를 지연한 경우 지연 1일당 계약금액의 5%를 배상한다."`;
+    expect(checkAgainstSource(answer, SOURCE).ok).toBe(false);
+  });
+
+  it("ignores a quotation in ordinary prose", () => {
+    // Only text the answer presents as the document's own words is checked;
+    // a phrase in quotes mid-sentence is emphasis, not a citation.
+    const answer = `이 조항은 사실상 "무한 책임"이며 업계 관행과 다릅니다.`;
+    const r = checkAgainstSource(answer, SOURCE);
+    expect(r.quotesChecked).toBe(0);
+    expect(r.ok).toBe(true);
+  });
+
+  it("reads 개월 as one unit, not a count of 개", () => {
+    const r = checkAgainstSource(`보증기간을 12개월로 한정합니다.`, SOURCE);
+    expect(r.issues.map((i) => i.evidence)).toEqual(["12개월"]);
+  });
+
   it("does not treat clause references as figures", () => {
     const answer = `제4조와 제5조, 제11조를 함께 봐야 합니다.`;
     expect(checkAgainstSource(answer, SOURCE).issues).toEqual([]);
