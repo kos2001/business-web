@@ -34,7 +34,7 @@
  * know: that this text cannot be trusted as it stands.
  */
 
-export type QualityIssueKind = "repetition" | "foreign-script";
+export type QualityIssueKind = "repetition" | "foreign-script" | "orthography";
 
 export interface QualityIssue {
   kind: QualityIssueKind;
@@ -42,6 +42,12 @@ export interface QualityIssue {
   label: string;
   /** The offending text, trimmed to something readable. */
   evidence: string;
+  /**
+   * Set only when the check knows the right answer, which today means 률/율.
+   * The defect store groups misspellings by what changed rather than by the
+   * sentence they appeared in, so it needs the two words apart.
+   */
+  correction?: { wrong: string; right: string };
 }
 
 export interface QualityReport {
@@ -86,6 +92,39 @@ const SYLLABLE_RUN = /([가-힣])\1{2,}/;
  */
 const TOKEN_RUN = /(?:^|\s)([가-힣A-Za-z]{1,3})(?:\s+\1){3,}/;
 
+/**
+ * 률 / 율 — the one misspelling worth checking mechanically.
+ *
+ * The suffix is decided entirely by the syllable in front of it: no final
+ * consonant, or a final ㄴ, takes 율; anything else takes 률. 비율 and 할인율
+ * against 배상률 and 가동률. No dictionary is needed, because Hangul encodes
+ * the final consonant arithmetically — subtract the block base and take the
+ * remainder mod 28, where 0 is "no final" and 4 is ㄴ.
+ *
+ * This is here rather than in the profile prompt because the prompt already
+ * says it. The rule has been in SOUL.md through three workspaces' worth of
+ * defect records and 배상율 came back anyway, most recently in a run whose
+ * arithmetic was otherwise correct. A rule the model keeps forgetting is a
+ * rule that belongs in code — and unlike the other checks in this file, this
+ * one is decidable, so it can name the correct spelling rather than merely
+ * flagging suspicion.
+ *
+ * Measured before shipping: across every Korean text in the repository, 61
+ * occurrences, 55 agreeing with the rule and 6 disagreeing — all 6 genuine
+ * 배상율 defects, no false positives. A separate pass over 51 standard words
+ * (효율, 규율, 조율, 요율, 확률, 시청률 …) flagged none.
+ */
+const RATE_SUFFIX = /([가-힣])([률율])/g;
+
+/** Which of 률/율 belongs after `syllable`, or null if it is not Hangul. */
+export function expectedRateSuffix(syllable: string): "률" | "율" | null {
+  const code = syllable.codePointAt(0);
+  if (code === undefined || code < 0xac00 || code > 0xd7a3) return null;
+  const finalConsonant = (code - 0xac00) % 28;
+  // 0 = no final consonant, 4 = ㄴ.
+  return finalConsonant === 0 || finalConsonant === 4 ? "율" : "률";
+}
+
 /** Trim a match to something a person can read in a warning line. */
 function evidenceAround(text: string, index: number, length: number): string {
   const start = Math.max(0, index - 25);
@@ -126,6 +165,26 @@ export function inspectAnswer(text: string): QualityReport {
       kind: "foreign-script",
       label: `${name} ${count}자`,
       evidence: evidenceAround(text, m.index, 1),
+    });
+  }
+
+  RATE_SUFFIX.lastIndex = 0;
+  const misspelled = new Map<string, { correct: string; index: number }>();
+  for (let m = RATE_SUFFIX.exec(text); m; m = RATE_SUFFIX.exec(text)) {
+    const expected = expectedRateSuffix(m[1]);
+    if (!expected || expected === m[2]) continue;
+    // Report each distinct word once, however often it recurs.
+    const word = /[가-힣]+$/.exec(text.slice(0, m.index + m[0].length))?.[0] ?? m[0];
+    if (!misspelled.has(word)) {
+      misspelled.set(word, { correct: word.slice(0, -1) + expected, index: m.index });
+    }
+  }
+  for (const [wrong, { correct, index }] of misspelled) {
+    issues.push({
+      kind: "orthography",
+      label: `${wrong} → ${correct}`,
+      evidence: evidenceAround(text, index, wrong.length),
+      correction: { wrong, right: correct },
     });
   }
 

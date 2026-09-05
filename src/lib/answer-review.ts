@@ -23,6 +23,23 @@
  * points at a profile on a stronger model, and the review's output is short —
  * a verdict and a list — which is the regime where these failures are rarest.
  *
+ * `voc-agent` is the default for a reason its name does not convey, so it is
+ * written down here. The profile is an LSI defect-analysis assistant and has
+ * nothing to do with sales; what it has is the only upstream on this machine
+ * running a **different vendor** — gpt-5.5 through openai-codex, against the
+ * sales profile's z-ai/glm-5.3-flash through OpenRouter. Independence at the
+ * profile level is not worth much; two z-ai models can derail on the same
+ * sentence. Independence at the vendor level is the property being bought.
+ *
+ * The domain mismatch was measured rather than assumed. On an answer with one
+ * planted misspelling and one clean control, voc-agent and agent-cowork
+ * (z-ai/glm-5.2) returned the identical verdict — the planted defect found,
+ * nothing invented on the control. The review prompt is specific enough that
+ * the profile's own SOUL does not bend it, so the tie is broken by vendor.
+ *
+ * If a neutral upstream on a third vendor ever exists, prefer it: the reason
+ * to move is a better name for the same property, not a capability gap.
+ *
  * ## Why it reports and never rewrites
  *
  * Handing back a cleaned-up contract review would destroy the only signal the

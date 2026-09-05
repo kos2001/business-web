@@ -69,11 +69,20 @@ export async function POST(req: Request) {
         quote: f.quote,
         reason: f.reason,
       })),
-      ...review.mechanical.map((m) => ({
-        kind: m.kind as DefectKind,
-        quote: m.evidence,
-        reason: m.label,
-      })),
+      // A 률/율 slip is a misspelling, not corruption, and it has to reach the
+      // store as one: the seeded 배상율 records and anything the reviewer model
+      // catches are already `spelling`, and grouping keys off the change rather
+      // than the sentence. Recording it under its own kind would split one
+      // habit into two patterns and the loop would never see it recur.
+      ...review.mechanical.map((m) =>
+        m.correction
+          ? {
+              kind: "spelling" as DefectKind,
+              quote: m.correction.wrong,
+              reason: `'${m.correction.right}'의 오타입니다.`,
+            }
+          : { kind: m.kind as DefectKind, quote: m.evidence, reason: m.label },
+      ),
       ...review.source
         .filter((x) => x.kind === "misquote")
         .map((x) => ({ kind: "misquote" as DefectKind, quote: x.evidence, reason: x.label })),
