@@ -1,0 +1,152 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import type { AnswerReview } from "@/lib/answer-review";
+
+/**
+ * The verdict on one answer.
+ *
+ * ## Why this is on the screen at all
+ *
+ * The model behind the sales profile sometimes derails on long Korean output.
+ * A live contract review came back with a decoder loop mid-summary and half its
+ * clauses missing, and the half it produced was well-formed enough to read as
+ * finished. That is the case this exists for: not the obviously broken answer,
+ * but the plausible one.
+ *
+ * ## Why it is quiet when clean
+ *
+ * A green tick on every answer becomes furniture within a day, and furniture is
+ * not read on the day it matters. Clean answers get one grey line; problems get
+ * a bordered panel that is open already. The asymmetry is the point.
+ */
+
+const KIND_LABEL: Record<string, string> = {
+  spelling: "맞춤법",
+  "broken-context": "문맥 끊김",
+  "table-misread": "표 오독",
+  number: "수치",
+};
+
+export default function AnswerCheck({
+  answer,
+  sourcePaths,
+}: {
+  answer: string;
+  sourcePaths: string[];
+}) {
+  const [review, setReview] = useState<AnswerReview | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    setReview(null);
+    setFailed(false);
+    fetch("/api/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answer, sourcePaths }),
+    })
+      .then((r) => (r.ok ? (r.json() as Promise<AnswerReview>) : Promise.reject()))
+      .then((d) => live && setReview(d))
+      .catch(() => live && setFailed(true));
+    return () => {
+      live = false;
+    };
+    // sourcePaths is rebuilt each render by the parent; the answer identifies
+    // the turn, and re-checking the same text would only cost another run.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answer]);
+
+  if (failed) {
+    return (
+      <p className="px-1 text-[11px] text-ink-soft">
+        검수를 실행하지 못했습니다 — 이 답변은 확인되지 않았습니다.
+      </p>
+    );
+  }
+
+  if (!review) {
+    return (
+      <p className="flex items-center gap-1.5 px-1 text-[11px] text-ink-soft">
+        <span className="size-2.5 animate-spin rounded-full border-[1.5px] border-line border-t-ink-soft" />
+        검수 중…
+      </p>
+    );
+  }
+
+  const problems = [
+    ...review.mechanical.map((m) => ({ tag: "손상", text: m.label, quote: m.evidence })),
+    ...review.findings.map((f) => ({
+      tag: KIND_LABEL[f.kind] ?? f.kind,
+      text: f.reason,
+      quote: f.quote,
+    })),
+    ...review.source
+      .filter((s) => s.kind === "misquote")
+      .map((s) => ({ tag: "인용", text: s.label, quote: s.evidence })),
+  ];
+
+  // Unsourced figures are shown apart from the problems: they are usually the
+  // agent's own proposal, and mixing them in would make every answer look wrong.
+  const unsourced = review.source
+    .filter((s) => s.kind === "unsourced-number")
+    .map((s) => s.evidence);
+
+  if (problems.length === 0) {
+    return (
+      <p className="px-1 text-[11px] text-ink-soft">
+        {review.ran ? "검수 통과" : "검수 미실행 — 확인되지 않았습니다"}
+        {unsourced.length > 0 && (
+          <>
+            {" · "}
+            <span title="문서에 없는 수치입니다. 제안값이면 정상입니다.">
+              문서에 없는 수치 {unsourced.length}건: {unsourced.slice(0, 6).join(", ")}
+            </span>
+          </>
+        )}
+      </p>
+    );
+  }
+
+  return (
+    <section
+      className="rounded-xl border bg-surface px-3.5 py-3"
+      style={{ borderColor: "var(--color-warn)", borderLeftWidth: 3 }}
+    >
+      <p className="flex items-center gap-1.5 text-xs font-medium" style={{ color: "var(--color-warn)" }}>
+        <svg viewBox="0 0 16 16" className="size-3.5 shrink-0" aria-hidden>
+          <path
+            d="M8 5.5v3.5M8 11.5h.01M8 1.8 1.3 13.5h13.4L8 1.8z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        이 답변에 문제 {problems.length}건 — 그대로 쓰지 마세요
+      </p>
+      <ul className="mt-2 flex flex-col gap-1.5">
+        {problems.map((p, i) => (
+          <li key={i} className="text-xs leading-snug">
+            <span className="mr-1.5 rounded bg-canvas px-1.5 py-0.5 text-[10px] text-ink-soft">
+              {p.tag}
+            </span>
+            {p.text}
+            {p.quote && (
+              <span className="mt-0.5 block break-words font-mono text-[11px] text-ink-soft">
+                {p.quote}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+      {unsourced.length > 0 && (
+        <p className="mt-2 border-t border-line pt-2 text-[11px] text-ink-soft">
+          문서에 없는 수치: {unsourced.slice(0, 8).join(", ")} — 제안값이면 정상입니다.
+        </p>
+      )}
+    </section>
+  );
+}

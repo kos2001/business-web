@@ -8,6 +8,13 @@ export interface Turn {
   text: string;
   /** Names of files attached to this turn, for the transcript. */
   files?: string[];
+  /**
+   * Staged paths for those files, kept so the answer can be checked against
+   * what it was reading. Paths rather than names because the verification route
+   * has to open them, and names alone cannot be resolved back to a file without
+   * guessing at the session directory.
+   */
+  sourcePaths?: string[];
 }
 
 export interface ToolTrace {
@@ -159,7 +166,12 @@ export function useRun(agent: string, sessionId: string) {
       setStartedAt(Date.now());
       setTurns((prev) => [
         ...prev,
-        { role: "user", text: input, files: files.map((f) => f.name) },
+        {
+          role: "user",
+          text: input,
+          files: files.map((f) => f.name),
+          sourcePaths: files.flatMap((f) => [f.path, ...(f.extraPaths ?? [])]),
+        },
       ]);
       setState("running");
 

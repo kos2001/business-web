@@ -10,6 +10,7 @@ import StageIcon from "./StageIcon";
 import ActivityTrace from "./ActivityTrace";
 import CorpusPanel from "./CorpusPanel";
 import ActionCapture from "./ActionCapture";
+import AnswerCheck from "./AnswerCheck";
 import { STAGE_META } from "@/lib/stage-meta";
 import { recordVisit } from "@/lib/recents";
 import type { Stage } from "@/lib/agents";
@@ -53,6 +54,14 @@ export default function Workspace({
   const [health, setHealth] = useState<HealthMap>({});
   const [recents, setRecents] = useState<string[]>([]);
   const [files, setFiles] = useState<Attachment[]>([]);
+  /**
+   * Whether this workspace's work begins with a document rather than a
+   * question. Contract review, countermeasures and drafting all read a file
+   * first, so the upload leads the empty state there; elsewhere it sits under
+   * the examples, where it is available without competing with them.
+   */
+  const docFirst = stage === "계약";
+
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -159,6 +168,56 @@ export default function Workspace({
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
+
+  /*
+   * Uploading used to be a sentence pointing at an unlabelled paperclip in the
+   * composer — "아래 클립 아이콘을 누르거나". People asked where the upload menu
+   * was, which is the right question: a hint that names a control is not a
+   * control, and an icon with no word beside it is not found by anyone who does
+   * not already know it is there.
+   *
+   * It leads the empty state on the 계약 workspaces because there the work
+   * *starts* with a file — a contract review with no contract has nothing to
+   * review, so the first thing on screen should be the way to hand one over.
+   */
+  const uploadCta = (
+    <button
+      onClick={() => fileInputRef.current?.click()}
+      disabled={uploading}
+      className="group mt-4 flex w-full items-center gap-3 rounded-xl border border-dashed bg-surface px-4 py-3.5 text-left transition-colors hover:bg-canvas disabled:opacity-60"
+      style={{ borderColor: `color-mix(in srgb, ${STAGE_META[stage].color} 45%, transparent)` }}
+    >
+      <span
+        className="flex size-8 shrink-0 items-center justify-center rounded-lg"
+        style={{
+          color: STAGE_META[stage].color,
+          backgroundColor: `color-mix(in srgb, ${STAGE_META[stage].color} 12%, transparent)`,
+        }}
+      >
+        {uploading ? (
+          <span className="size-3.5 animate-spin rounded-full border-[1.5px] border-current border-t-transparent" />
+        ) : (
+          <svg viewBox="0 0 20 20" fill="none" className="size-4" aria-hidden>
+            <path
+              d="M10 13.5V4m0 0L6.5 7.5M10 4l3.5 3.5M3.5 13v2A1.5 1.5 0 0 0 5 16.5h10a1.5 1.5 0 0 0 1.5-1.5v-2"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium">
+          {uploading ? "올리는 중…" : docFirst ? "계약서 올리기" : "문서 올리기"}
+        </span>
+        <span className="mt-0.5 block text-xs leading-relaxed text-ink-soft">
+          끌어다 놓아도 됩니다. PDF·워드·한글·엑셀·이미지, 한 개당 25MB까지.
+        </span>
+      </span>
+    </button>
+  );
 
   return (
     <div className="flex h-dvh">
@@ -294,9 +353,10 @@ export default function Workspace({
                 <p className="text-sm leading-relaxed sm:mt-3">{blurb}</p>
                 <p className="mt-1 text-xs leading-relaxed text-ink-soft">
                   예시를 눌러 바로 시작하거나, 가진 자료를 붙여넣고 평소 쓰는
-                  말로 요청하세요. 파일은 아래 클립 아이콘을 누르거나 화면에
-                  끌어다 놓으면 됩니다.
+                  말로 요청하세요.
                 </p>
+
+                {docFirst && uploadCta}
 
                 {corpus && (
                   <div className="mt-4">
@@ -328,6 +388,8 @@ export default function Workspace({
                     </button>
                   ))}
                 </div>
+
+                {!docFirst && uploadCta}
               </div>
             )}
 
@@ -353,6 +415,17 @@ export default function Workspace({
                   <article className="prose-agent max-w-none rounded-xl border border-line bg-surface px-4 py-3.5 text-sm">
                     <ReactMarkdown>{turn.text}</ReactMarkdown>
                   </article>
+                  {/* The check runs before the capture panel: deciding whether
+                      an answer is trustworthy comes before deciding which of
+                      its follow-ups to take on. */}
+                  <AnswerCheck
+                    answer={turn.text}
+                    sourcePaths={
+                      // The documents belong to the question, which is the turn
+                      // before this one.
+                      run.turns[i - 1]?.sourcePaths ?? []
+                    }
+                  />
                   <ActionCapture answer={turn.text} workspace={slug} />
                 </>
               )}
