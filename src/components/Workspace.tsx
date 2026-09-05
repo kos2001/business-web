@@ -66,6 +66,10 @@ export default function Workspace({
   const docFirst = stage === "계약";
 
   const [uploading, setUploading] = useState(false);
+  /** Whether this deployment has Confluence credentials, asked once on mount. */
+  const [wikiOn, setWikiOn] = useState(false);
+  const [wikiOpen, setWikiOpen] = useState(false);
+  const [wikiUrl, setWikiUrl] = useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [filing, setFiling] = useState<string | null>(null);
@@ -109,6 +113,15 @@ export default function Workspace({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [run.turns, run.streaming, run.tools, run.approval]);
+
+  // Asked rather than assumed: offering a control that always errors is worse
+  // than not offering it, and the credentials that decide this are server-side.
+  useEffect(() => {
+    fetch("/api/confluence")
+      .then((r) => r.json())
+      .then((d: { configured?: boolean }) => setWikiOn(Boolean(d.configured)))
+      .catch(() => setWikiOn(false));
+  }, []);
 
   const busy = run.state !== "idle";
   const isEmpty = run.turns.length === 0 && !busy;
@@ -170,6 +183,37 @@ export default function Workspace({
     }
   }
 
+  /**
+   * Pulls a Confluence page in and attaches it like a file.
+   *
+   * Shares `files` and `uploadError` with the upload path rather than having
+   * its own: once a page is attached it is a document, and giving it a separate
+   * list and a separate error line would mean two of everything for a
+   * distinction the user stops caring about the moment it is on screen.
+   */
+  async function addWikiPage() {
+    const url = wikiUrl.trim();
+    if (!url || uploading) return;
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const res = await fetch("/api/confluence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, sessionId }),
+      });
+      const body = (await res.json()) as Attachment & { error?: string };
+      if (!res.ok) throw new Error(body.error ?? "페이지를 가져오지 못했습니다.");
+      setFiles((prev) => [...prev, body]);
+      setWikiUrl("");
+      setWikiOpen(false);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "페이지를 가져오지 못했습니다.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function upload(list: FileList | null) {
     if (!list?.length) return;
     setUploadError(null);
@@ -203,6 +247,64 @@ export default function Workspace({
    * *starts* with a file — a contract review with no contract has nothing to
    * review, so the first thing on screen should be the way to hand one over.
    */
+  /**
+   * The wiki equivalent of the upload button.
+   *
+   * Sits with it rather than in a menu: "the contract is a page, not a file" is
+   * not an advanced case, it is half the contracts, and a document source
+   * hidden behind an overflow is a document source nobody finds — the same
+   * mistake the paperclip made.
+   */
+  const wikiCta = wikiOn ? (
+    <div className="mt-2">
+      {wikiOpen ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <input
+            value={wikiUrl}
+            onChange={(e) => setWikiUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void addWikiPage();
+              if (e.key === "Escape") setWikiOpen(false);
+            }}
+            autoFocus
+            placeholder="Confluence 페이지 주소를 붙여넣으세요"
+            aria-label="Confluence 페이지 주소"
+            className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none transition-colors focus:border-accent"
+          />
+          <button
+            onClick={() => void addWikiPage()}
+            disabled={!wikiUrl.trim() || uploading}
+            className="rounded-lg border border-line bg-surface px-3 py-2 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+          >
+            {uploading ? "가져오는 중…" : "가져오기"}
+          </button>
+          <button
+            onClick={() => setWikiOpen(false)}
+            className="px-1.5 py-2 text-xs text-ink-soft hover:text-ink"
+          >
+            취소
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setWikiOpen(true)}
+          className="flex items-center gap-2 text-xs text-ink-soft transition-colors hover:text-accent"
+        >
+          <svg viewBox="0 0 16 16" fill="none" className="size-3.5" aria-hidden>
+            <path
+              d="M6.5 9.5a3 3 0 0 0 4.24 0l2-2a3 3 0 0 0-4.24-4.24l-.7.7M9.5 6.5a3 3 0 0 0-4.24 0l-2 2a3 3 0 0 0 4.24 4.24l.7-.7"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          계약서가 Confluence 페이지에 있나요? 주소로 가져오기
+        </button>
+      )}
+    </div>
+  ) : null;
+
   const uploadCta = (
     <button
       onClick={() => fileInputRef.current?.click()}
@@ -379,7 +481,12 @@ export default function Workspace({
                   말로 요청하세요.
                 </p>
 
-                {docFirst && uploadCta}
+                {docFirst && (
+                  <>
+                    {uploadCta}
+                    {wikiCta}
+                  </>
+                )}
 
                 {corpus && (
                   <div className="mt-4">
@@ -412,7 +519,12 @@ export default function Workspace({
                   ))}
                 </div>
 
-                {!docFirst && uploadCta}
+                {!docFirst && (
+                  <>
+                    {uploadCta}
+                    {wikiCta}
+                  </>
+                )}
               </div>
             )}
 
