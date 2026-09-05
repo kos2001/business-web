@@ -13,10 +13,14 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@types/pako": "^2.0.4",
     "better-sqlite3": "^13.0.3",
+    "cfb": "^1.2.2",
     "jose": "^6.2.10",
+    "jszip": "^3.10.1",
     "next": "^15.5.4",
     "openid-client": "^6.8.7",
+    "pako": "^3.0.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-markdown": "^10.1.0"
