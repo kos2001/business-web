@@ -40,7 +40,11 @@ const TTL_MS = 24 * 60 * 60 * 1000;
  * than the failure mode of a missing useful one.
  */
 export const ALLOWED_EXTENSIONS = new Set([
-  ".pdf", ".docx", ".doc", ".hwp", ".hwpx", ".rtf",
+  // 한글 (.hwp/.hwpx) is deliberately absent. It was accepted for a while with
+  // nothing able to read it, so the file reached the agent as a ZIP or an OLE
+  // container and the analysis was of the bytes — indistinguishable from a real
+  // review. Refusing at the door is the honest version of not supporting it.
+  ".pdf", ".docx", ".doc", ".rtf",
   ".txt", ".md", ".csv", ".tsv", ".json", ".xml",
   ".xlsx", ".xls", ".pptx", ".ppt",
   ".png", ".jpg", ".jpeg", ".webp", ".gif",
