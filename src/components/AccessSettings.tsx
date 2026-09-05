@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import PageHeader from "./PageHeader";
 import { useCallback, useEffect, useState } from "react";
 import type { AccessList, Role } from "@/lib/access";
 
@@ -79,17 +80,14 @@ export default function AccessSettings() {
   const canEdit = data.authConfigured && data.me?.role === "admin";
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-9">
-      <Link href="/" className="text-xs text-ink-soft hover:text-accent">
-        ← 홈
-      </Link>
-      <h1 className="mt-2 text-xl font-semibold tracking-tight">접근 권한</h1>
-      <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
-        회사 계정(SSO)으로 신원을 확인한 뒤, 이 목록에 있는 사람만 들어올 수
-        있습니다. 신원 확인과 사용 권한은 별개입니다 — 회사 계정이 있다고
-        자동으로 허용되지 않습니다.
-      </p>
+    <main className="page-enter flex min-w-0 flex-1 flex-col overflow-y-auto">
+      <PageHeader
+        title="접근 권한"
+        lead="회사 계정(SSO)으로 신원을 확인한 뒤, 이 목록에 있는 사람만 들어올 수 있습니다. 신원 확인과 사용 권한은 별개입니다 — 회사 계정이 있다고 자동으로 허용되지 않습니다."
+        crumbs={[{ label: "전체 업무", href: "/" }]}
+      />
 
+      <div className="mx-auto w-full max-w-3xl px-6 pb-12 pt-2">
       {!data.authConfigured && (
         <p className="mt-4 rounded-lg border border-warn/40 bg-warn/5 px-3.5 py-3 text-sm leading-relaxed text-warn">
           <strong className="font-medium">SSO 가 설정되지 않았습니다.</strong>{" "}
@@ -317,7 +315,8 @@ export default function AccessSettings() {
           </form>
         </footer>
       )}
-    </div>
+      </div>
+    </main>
   );
 }
 
