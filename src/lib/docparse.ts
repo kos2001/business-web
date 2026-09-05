@@ -30,11 +30,10 @@
 
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { isHwp, parseHwpFile, HwpError } from "./hwp";
 
 const run = promisify(execFile);
 
@@ -77,11 +76,6 @@ export async function parseToMarkdown(
   source: string,
   extension: string,
 ): Promise<ParseResult> {
-  // 한글 first: docparser cannot read either HWP format, and there is no
-  // converter on the machine, so before this the file was passed through as a
-  // ZIP or an OLE container for the agent to "read". See lib/hwp.ts.
-  if (isHwp(extension)) return parseHwpToMarkdown(source, extension);
-
   if (!isParseable(extension)) {
     return {
       path: source,
@@ -168,35 +162,3 @@ export async function writeParseNote(target: string, body: string): Promise<void
   await writeFile(`${target}.note.txt`, body, "utf-8").catch(() => undefined);
 }
 
-
-/**
- * Writes a Markdown sidecar for a 한글 document.
- *
- * Mirrors the docparser path exactly — same `.md` suffix, same return shape —
- * so the caller, the prompt that names the path, and the source check that
- * compares quotations against the document all stay unaware of the format.
- *
- * A failure returns the original path *with a note*, never silently: the whole
- * reason this exists is that a 한글 contract used to arrive unparsed and
- * unremarked.
- */
-async function parseHwpToMarkdown(
-  source: string,
-  extension: string,
-): Promise<ParseResult> {
-  const target = `${source}.md`;
-  try {
-    const text = await parseHwpFile(new Uint8Array(await readFile(source)), extension);
-    await writeFile(target, text, { encoding: "utf8", mode: 0o600 });
-    return { path: target, parsed: true };
-  } catch (err) {
-    return {
-      path: source,
-      parsed: false,
-      note:
-        err instanceof HwpError
-          ? err.message
-          : "한글 문서를 읽지 못해 원본 그대로 전달합니다.",
-    };
-  }
-}
