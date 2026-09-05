@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inspectAnswer, summariseIssues } from "./answer-quality";
+import { expectedRateSuffix, inspectAnswer, summariseIssues } from "./answer-quality";
 
 /**
  * The corrupted passages here are verbatim from live runs of 계약서 분석 against
@@ -79,5 +79,48 @@ describe("summariseIssues", () => {
   it("joins the labels for a one-line warning", () => {
     const r = inspectAnswer(`${LOOP_RUN}\n準拠法`);
     expect(summariseIssues(r.issues)).toBe("같은 글자가 반복되는 구간, 한자 3자");
+  });
+});
+
+describe("률/율", () => {
+  it("catches the defect that three workspaces recorded and SOUL.md failed to stop", () => {
+    const r = inspectAnswer("일 배상율 2.5% 를 40일 적용하면 계약금액의 100% 입니다.");
+    expect(r.ok).toBe(false);
+    expect(r.issues).toEqual([
+      expect.objectContaining({ kind: "orthography", label: "배상율 → 배상률" }),
+    ]);
+  });
+
+  it("names the correction, because the rule decides it rather than guessing", () => {
+    expect(summariseIssues(inspectAnswer("지연배상율과 불량율").issues)).toBe(
+      "지연배상율 → 지연배상률, 불량율 → 불량률",
+    );
+  });
+
+  it("leaves correct spellings alone, including the ones that look wrong", () => {
+    // 규율·조율·요율·비율 all take 율 legitimately: the syllable before has no
+    // final consonant. 확률·시청률·가동률 take 률. None of these is a defect.
+    const clean =
+      "규율과 조율, 요율 비율 할인율 증가율 실패율 백분율 환율 효율 자율 선율 " +
+      "확률 시청률 가동률 불량률 배상률 지연배상률 달성률 법률 경쟁률 실업률";
+    expect(inspectAnswer(clean)).toEqual({ ok: true, issues: [] });
+  });
+
+  it("reports a repeated misspelling once", () => {
+    const r = inspectAnswer("배상율은 2.5% 입니다. 배상율 상한이 없습니다. 배상율 검토 요망.");
+    expect(r.issues).toHaveLength(1);
+  });
+
+  it("ignores 률/율 with no Hangul syllable in front of it", () => {
+    expect(inspectAnswer("율무차와 律 그리고 100율").ok).toBe(false); // 한자만 걸린다
+    expect(inspectAnswer("율무차").issues).toEqual([]);
+  });
+
+  it("derives the suffix from the final consonant, not a word list", () => {
+    expect(expectedRateSuffix("비")).toBe("율"); // 받침 없음
+    expect(expectedRateSuffix("인")).toBe("율"); // ㄴ 받침
+    expect(expectedRateSuffix("상")).toBe("률"); // ㅇ 받침
+    expect(expectedRateSuffix("확")).toBe("률"); // ㄱ 받침
+    expect(expectedRateSuffix("A")).toBeNull();
   });
 });

@@ -141,7 +141,11 @@ export default function AnswerCheck({
     : "검수";
 
   const problems = [
-    ...review.mechanical.map((m) => ({ tag: "손상", text: m.label, quote: m.evidence })),
+    ...review.mechanical.map((m) => ({
+      tag: m.kind === "orthography" ? "맞춤법" : "손상",
+      text: m.label,
+      quote: m.evidence,
+    })),
     ...review.findings.map((f) => ({
       tag: KIND_LABEL[f.kind] ?? f.kind,
       text: f.reason,
@@ -205,7 +209,8 @@ export default function AnswerCheck({
         이 답변에 문제 {problems.length}건 — 그대로 쓰지 마세요
       </p>
       <p className="mt-0.5 text-[11px] text-ink-soft">
-        {by} · 답변을 쓴 에이전트와 다른 모델이 확인했습니다
+        {by} · 답변을 쓴 에이전트와 <strong className="font-medium">다른 공급사</strong>의
+        모델이라 같은 실수를 함께 하지 않습니다
       </p>
       <ul className="mt-2 flex flex-col gap-1.5">
         {problems.map((p, i) => (
