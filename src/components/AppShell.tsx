@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import Sidebar, { type HealthMap, type NavItem } from "./Sidebar";
+import { UTILITIES, UtilityIcon } from "./utilities";
 import type { Stage } from "@/lib/agents";
 
 /**
@@ -43,6 +45,20 @@ export default function AppShell({
   children: React.ReactNode;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  /** Whether the store has something worth looking at, for the dot. */
+  const [storeWarn, setStoreWarn] = useState(false);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/stores")
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { findings: { severity: string }[] }) => {
+        if (live) setStoreWarn(d.findings.some((f) => f.severity === "urgent"));
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, []);
   /**
    * Folded state, remembered.
    *
@@ -108,6 +124,25 @@ export default function AppShell({
           영
         </span>
         <span className="text-sm font-medium">영업 에이전트</span>
+        <span className="flex-1" />
+        {UTILITIES.map((u) => (
+          <Link
+            key={u.href}
+            href={u.href}
+            title={u.label}
+            aria-label={u.label}
+            className="relative flex size-8 items-center justify-center rounded-md text-ink-soft hover:bg-canvas hover:text-ink"
+          >
+            <UtilityIcon path={u.path} />
+            {u.href === "/stores" && storeWarn && (
+              <span
+                className="absolute right-1 top-1 size-1.5 rounded-full"
+                style={{ backgroundColor: "var(--color-warn)" }}
+                aria-label="확인 필요"
+              />
+            )}
+          </Link>
+        ))}
       </header>
 
       {menuOpen && (
@@ -143,7 +178,36 @@ export default function AppShell({
         collapsed={collapsed}
         onToggleCollapsed={toggleCollapsed}
       />
-      {children}
+
+      {/* The page owns its top-right corner. Positioned rather than stacked so
+          it costs no vertical space: every page's header band has an empty
+          right half, which is the room the sidebar did not have. Hidden below
+          the sidebar's breakpoint, where the narrow bar carries them instead. */}
+      <div className="relative flex min-w-0 flex-1 flex-col">
+        <div className="pointer-events-none absolute right-0 top-0 z-20 hidden p-3 sm:block">
+          <div className="pointer-events-auto flex items-center gap-0.5">
+            {UTILITIES.map((u) => (
+              <Link
+                key={u.href}
+                href={u.href}
+                title={u.label}
+                aria-label={u.label}
+                className="relative flex size-8 items-center justify-center rounded-md text-ink-soft transition-colors hover:bg-canvas hover:text-ink"
+              >
+                <UtilityIcon path={u.path} />
+                {u.href === "/stores" && storeWarn && (
+                  <span
+                    className="absolute right-1 top-1 size-1.5 rounded-full"
+                    style={{ backgroundColor: "var(--color-warn)" }}
+                    aria-label="확인 필요"
+                  />
+                )}
+              </Link>
+            ))}
+          </div>
+        </div>
+        {children}
+      </div>
     </div>
   );
 }

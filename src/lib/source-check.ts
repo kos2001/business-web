@@ -111,7 +111,28 @@ function quotedClaims(answer: string): string[] {
 // Longer units first: with 개 ahead of 개월, "12개월" matches as "12개" and
 // is then reported as an unsourced quantity that nobody wrote.
 const FIGURE_RE = /(\d[\d,]*(?:\.\d+)?)\s*(개월|만원|억원|원|개|%|일|년|배)/g;
+
+/**
+ * The same figures in an English contract.
+ *
+ * Written separately rather than folded into the pattern above because the
+ * shapes differ: Korean puts the unit after the number, and a currency puts it
+ * before — `USD 14,200`, not `14,200 USD`. Tested against a real English
+ * supply agreement, where the Korean-only pattern saw `10%` and nothing else:
+ * a unit price stated as 14,000 when the schedule says 14,200 went straight
+ * through, which is the exact error this check exists to catch.
+ */
+const CURRENCY_RE = /(?:USD|EUR|JPY|KRW|CNY|GBP|\$|€|¥|₩)\s*(\d[\d,]*(?:\.\d+)?)/gi;
+const EN_UNIT_RE =
+  /(\d[\d,]*(?:\.\d+)?)\s*(business\s+days?|calendar\s+days?|days?|weeks?|months?|years?|units?|pcs|pieces?|%)/gi;
 const CLAUSE_REF_RE = /제\s*\d+\s*조/g;
+
+/** Small counts of things are ordinals; a deadline or a rate is data. */
+function isTrivialEn(value: string, unit: string): boolean {
+  const n = Number(value.replace(/,/g, ""));
+  if (Number.isNaN(n)) return true;
+  return /units?|pcs|pieces?/i.test(unit) && n < 10;
+}
 
 /** Numbers small enough to be ordinals rather than data. */
 function isTrivial(value: string, unit: string): boolean {
@@ -157,21 +178,43 @@ export function checkAgainstSource(answer: string, source: string): SourceReport
     });
   }
 
-  const withoutClauseRefs = answer.replace(CLAUSE_REF_RE, " ");
-  const unsourced = new Set<string>();
+  const withoutClauseRefs = answer
+    .replace(CLAUSE_REF_RE, " ")
+    // "Article 5" is a pointer like 제5조, not a value.
+    .replace(/\b(?:article|clause|section|schedule)\s+\d+/gi, " ");
+  // Keyed by value, not by label: the Korean and English patterns both match
+  // "10%" (as "10%" and "10 %"), and reporting one figure twice makes the panel
+  // look like it found more than it did.
+  const unsourced = new Map<string, string>();
+
+  const consider = (value: string, label: string) => {
+    const digits = value.replace(/,/g, "").replace(/\.0+$/, "");
+    if (sourceFigures.has(digits) || unsourced.has(digits)) return;
+    unsourced.set(digits, label);
+  };
+
   FIGURE_RE.lastIndex = 0;
   for (let m = FIGURE_RE.exec(withoutClauseRefs); m; m = FIGURE_RE.exec(withoutClauseRefs)) {
     const [, value, unit] = m;
     if (isTrivial(value, unit)) continue;
-    const figure = `${value}${unit}`;
     // Compare the value, not the rendering: the document may write 14,200 원
     // with a space, or the converter may drop the comma.
-    const digits = value.replace(/,/g, "").replace(/\.0+$/, "");
-    if (sourceFigures.has(digits)) continue;
-    unsourced.add(figure);
+    consider(value, `${value}${unit}`);
   }
 
-  for (const figure of unsourced) {
+  CURRENCY_RE.lastIndex = 0;
+  for (let m = CURRENCY_RE.exec(withoutClauseRefs); m; m = CURRENCY_RE.exec(withoutClauseRefs)) {
+    consider(m[1], m[0].replace(/\s+/g, " ").trim());
+  }
+
+  EN_UNIT_RE.lastIndex = 0;
+  for (let m = EN_UNIT_RE.exec(withoutClauseRefs); m; m = EN_UNIT_RE.exec(withoutClauseRefs)) {
+    const [, value, unit] = m;
+    if (isTrivialEn(value, unit)) continue;
+    consider(value, `${value} ${unit}`.replace(/\s+/g, " "));
+  }
+
+  for (const figure of unsourced.values()) {
     issues.push({
       kind: "unsourced-number",
       label: "문서에 없는 수치",

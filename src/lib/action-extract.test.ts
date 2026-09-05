@@ -181,3 +181,21 @@ describe("paragraph-form answers", () => {
     expect(c[0].title).toContain("예산을 확인");
   });
 });
+
+describe("영문 답변", () => {
+  it("finds a list under an English heading", () => {
+    // The playbooks' 다음 액션 rule does not survive translation; an English
+    // review heads its list "Next actions" and the panel found nothing at all.
+    const answer = `## Summary\nThe draft is uncapped.\n\n## Next actions\n- Draft revised wording for the Article 5 cap\n- Request legal review of the uncapped indemnity\n- Confirm approval authority on Buyer side\n`;
+    expect(extractCandidates(answer).map((c) => c.title)).toEqual([
+      "Draft revised wording for the Article 5 cap",
+      "Request legal review of the uncapped indemnity",
+      "Confirm approval authority on Buyer side",
+    ]);
+  });
+
+  it("also accepts Next steps", () => {
+    const answer = `## Next steps\n- Confirm the signing date\n`;
+    expect(extractCandidates(answer)).toHaveLength(1);
+  });
+});

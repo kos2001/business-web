@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { STAGES, type Stage } from "@/lib/agents";
 import { STAGE_META } from "@/lib/stage-meta";
 import StageIcon from "./StageIcon";
+import { UTILITIES, UtilityIcon } from "./utilities";
 
 export interface NavItem {
   slug: string;
@@ -154,58 +155,6 @@ export default function Sidebar({
     };
   }, []);
 
-  /**
-   * The four pages that are about the system rather than about the work.
-   *
-   * They were five plain text lines at the bottom of the nav, below twenty-five
-   * workspaces — reachable only after scrolling past everything. As a row of
-   * icons under the logo they cost one line instead of four and are always in
-   * the same place.
-   *
-   * Icons only, deliberately. These are visited occasionally; giving them
-   * labels at the top would put the least-used items in the most prominent
-   * space and push the workspace nav down. The title attribute carries the
-   * name, and `aria-label` carries it for anyone not using a mouse.
-   */
-  const utilities = [
-    {
-      href: "/improvement",
-      label: "반복되는 결함",
-      // Arrow returning on itself — something that keeps coming back.
-      path: "M3 8a5 5 0 0 1 8.5-3.5L13 6M13 8a5 5 0 0 1-8.5 3.5L3 10M13 3v3h-3M3 13v-3h3",
-    },
-    {
-      href: "/stores",
-      label: "문서와 저장소",
-      // Stacked discs — what is held.
-      path: "M8 2.5c2.8 0 5 .7 5 1.6S10.8 5.7 8 5.7 3 5 3 4.1s2.2-1.6 5-1.6zM3 4.1v3.8c0 .9 2.2 1.6 5 1.6s5-.7 5-1.6V4.1M3 7.9v3.8c0 .9 2.2 1.6 5 1.6s5-.7 5-1.6V7.9",
-    },
-    {
-      href: "/settings/access",
-      label: "접근 권한 설정",
-      // A key.
-      path: "M9.5 6.5a2.5 2.5 0 1 1-1.9 4.1L3 15.2 2 14.2l.8-.8-.9-.9.9-.9-.9-.9L6.4 6.4A2.5 2.5 0 0 1 9.5 3.9",
-    },
-    {
-      href: "/settings/confluence",
-      label: "Confluence 연결",
-      // A link.
-      path: "M6.5 9.5a3 3 0 0 0 4.24 0l2-2a3 3 0 0 0-4.24-4.24l-.7.7M9.5 6.5a3 3 0 0 0-4.24 0l-2 2a3 3 0 0 0 4.24 4.24l.7-.7",
-    },
-    {
-      href: "/settings/obsidian",
-      label: "Obsidian 노트",
-      // A note with a folded corner.
-      path: "M9.5 2H4.5A1.5 1.5 0 0 0 3 3.5v9A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V5.5L9.5 2zM9.5 2v3.5H13M5.5 8.5h5M5.5 11h3",
-    },
-  ] as const;
-
-  const utilIcon = (d: string) => (
-    <svg viewBox="0 0 16 16" fill="none" className="size-4" aria-hidden>
-      <path d={d} stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-
   // The drawer is never a rail: it opens because there is no room for a
   // sidebar, and a rail inside it would be a nav folded twice.
   const rail = collapsed && !forceVisible;
@@ -249,38 +198,6 @@ export default function Sidebar({
             </span>
           </span>
         </Link>
-      )}
-
-      {!rail && (
-        <div className="flex items-center gap-0.5 border-b border-line px-2.5 py-1.5">
-          {utilities.map((u) => (
-            <Link
-              key={u.href}
-              href={u.href}
-              title={u.label}
-              aria-label={u.label}
-              aria-current={slug ? undefined : undefined}
-              className="relative flex size-8 items-center justify-center rounded-md text-ink-soft transition-colors hover:bg-canvas hover:text-ink"
-            >
-              {utilIcon(u.path)}
-              {/* The store's warning rides its own icon. A count would not fit
-                  and is not the question — whether there is a problem is. */}
-              {u.href === "/stores" && stores?.warn && (
-                <span
-                  className="absolute right-1 top-1 size-1.5 rounded-full"
-                  style={{ backgroundColor: "var(--color-warn)" }}
-                  aria-label="확인 필요"
-                />
-              )}
-            </Link>
-          ))}
-          <span className="flex-1" />
-          {stores && (
-            <span className="pr-1 text-[11px] tabular-nums text-ink-soft/70" title="선례 문서 수">
-              선례 {stores.docs}
-            </span>
-          )}
-        </div>
       )}
 
       {rail ? (
@@ -497,7 +414,7 @@ export default function Sidebar({
                 already the language, so they cost nothing extra here — and
                 dropping them would make collapsing the sidebar the way to lose
                 half the app. */}
-            {utilities.map((u) => (
+            {UTILITIES.map((u) => (
               <Link
                 key={u.href}
                 href={u.href}
@@ -505,7 +422,7 @@ export default function Sidebar({
                 aria-label={u.label}
                 className="relative flex w-full justify-center rounded-md py-1.5 text-ink-soft hover:bg-canvas hover:text-ink"
               >
-                {utilIcon(u.path)}
+                <UtilityIcon path={u.path} />
                 {u.href === "/stores" && stores?.warn && (
                   <span
                     className="absolute right-2.5 top-1 size-1.5 rounded-full"

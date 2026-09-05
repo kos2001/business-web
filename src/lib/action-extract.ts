@@ -28,7 +28,10 @@ export interface ActionCandidate {
   sourceText: string;
 }
 
-const CUE = "(다음\\s*액션|액션\\s*아이템|action\\s*items?|사내\\s*확인(?:\\s*사항)?|확인\\s*필요|조치\\s*필요|즉시\\s*확인|협상\\s*포인트|확정\\s*필요)";
+// `next actions` and `next steps` are here because an English contract review
+// heads its follow-up list that way and the panel found nothing at all — the
+// playbooks' 다음 액션 rule does not survive translation.
+const CUE = "(다음\\s*액션|액션\\s*아이템|action\\s*items?|next\\s*actions?|next\\s*steps?|사내\\s*확인(?:\\s*사항)?|확인\\s*필요|조치\\s*필요|즉시\\s*확인|협상\\s*포인트|확정\\s*필요)";
 
 /** A line that is only the heading — "다음 액션", "## Action Items". */
 const SECTION_RE = new RegExp(`^#{0,4}\\s*\\**\\s*${CUE}\\s*\\**\\s*[:：]?\\s*$`, "i");
