@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { NextResponse } from "next/server";
 import { reviewAnswer } from "@/lib/answer-review";
+import { recordDefect, type DefectKind } from "@/lib/defects";
 import { assertInsideRoot } from "@/lib/staging";
 
 /**
@@ -54,5 +55,38 @@ export async function POST(req: Request) {
   }
 
   const source = await loadSources(body.sourcePaths);
-  return NextResponse.json(await reviewAnswer(answer, source || undefined));
+  const review = await reviewAnswer(answer, source || undefined);
+
+  // Record what was found before returning it. Until now every defect was shown
+  // once and forgotten, so nobody could tell a one-off from a habit — and that
+  // is the only distinction that matters, because a habit is an instruction
+  // problem and instructions are fixable. See lib/defects.ts.
+  const workspace = typeof body.workspace === "string" ? body.workspace : "";
+  if (workspace) {
+    const found: { kind: DefectKind; quote: string; reason: string }[] = [
+      ...review.findings.map((f) => ({
+        kind: f.kind as DefectKind,
+        quote: f.quote,
+        reason: f.reason,
+      })),
+      ...review.mechanical.map((m) => ({
+        kind: m.kind as DefectKind,
+        quote: m.evidence,
+        reason: m.label,
+      })),
+      ...review.source
+        .filter((x) => x.kind === "misquote")
+        .map((x) => ({ kind: "misquote" as DefectKind, quote: x.evidence, reason: x.label })),
+    ];
+    for (const d of found) {
+      try {
+        recordDefect({ workspace, ...d });
+      } catch {
+        // Recording is bookkeeping. A failure here must not take down the
+        // verdict the reader is waiting for.
+      }
+    }
+  }
+
+  return NextResponse.json(review);
 }
