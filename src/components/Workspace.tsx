@@ -9,6 +9,7 @@ import Sidebar, { type HealthMap, type NavItem } from "./Sidebar";
 import StageIcon from "./StageIcon";
 import ActivityTrace from "./ActivityTrace";
 import CorpusPanel from "./CorpusPanel";
+import ActionCapture from "./ActionCapture";
 import { STAGE_META } from "@/lib/stage-meta";
 import { recordVisit } from "@/lib/recents";
 import type { Stage } from "@/lib/agents";
@@ -348,9 +349,12 @@ export default function Workspace({
                 // clause tables, cited findings, action-item checklists. Bare
                 // text on the page background gives that nothing to sit on and
                 // no edge for a table to butt against.
-                <article className="prose-agent max-w-none rounded-xl border border-line bg-surface px-4 py-3.5 text-sm">
-                  <ReactMarkdown>{turn.text}</ReactMarkdown>
-                </article>
+                <>
+                  <article className="prose-agent max-w-none rounded-xl border border-line bg-surface px-4 py-3.5 text-sm">
+                    <ReactMarkdown>{turn.text}</ReactMarkdown>
+                  </article>
+                  <ActionCapture answer={turn.text} workspace={slug} />
+                </>
               )}
               {/* The trace belongs with the turn it explains — between the
                   question and the answer it produced, not after both. Anchored
