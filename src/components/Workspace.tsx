@@ -58,10 +58,14 @@ export default function Workspace({
   const [recents, setRecents] = useState<string[]>([]);
   const [files, setFiles] = useState<Attachment[]>([]);
   /**
-   * Whether this workspace's work begins with a document rather than a
-   * question. Contract review, countermeasures and drafting all read a file
-   * first, so the upload leads the empty state there; elsewhere it sits under
-   * the examples, where it is available without competing with them.
+   * Whether to call it 계약서 or 문서 on the button.
+   *
+   * The upload used to sit above the examples on 계약 and below them elsewhere,
+   * on the theory that a domain whose work does not start with a file should
+   * not lead with one. In use that reasoning loses to a simpler one: a control
+   * that moves depending on which page you are on has to be found again every
+   * time, and the whole point of replacing the paperclip was that people could
+   * not find it. One position everywhere; only the wording follows the domain.
    */
   const docFirst = stage === "계약";
 
@@ -481,12 +485,8 @@ export default function Workspace({
                   말로 요청하세요.
                 </p>
 
-                {docFirst && (
-                  <>
-                    {uploadCta}
-                    {wikiCta}
-                  </>
-                )}
+                {uploadCta}
+                {wikiCta}
 
                 {corpus && (
                   <div className="mt-4">
@@ -518,13 +518,6 @@ export default function Workspace({
                     </button>
                   ))}
                 </div>
-
-                {!docFirst && (
-                  <>
-                    {uploadCta}
-                    {wikiCta}
-                  </>
-                )}
               </div>
             )}
 
