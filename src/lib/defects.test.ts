@@ -1,12 +1,28 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import {
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+// The path has to be set before the module is imported, because it reads the
+// env once at load. A static import would bind the production database and
+// `_resetForTests` would empty it on every `beforeEach` — which is exactly what
+// happened until this was fixed. `actions.test.ts` had solved it already; this
+// file did not follow it.
+const DB = join(tmpdir(), `defects-test-${process.pid}.db`);
+process.env.DEFECTS_DB_PATH = DB;
+
+const {
   _resetForTests,
   normaliseQuote,
   recordDefect,
   recurringPatterns,
   spellingChange,
   summariseDefects,
-} from "./defects";
+} = await import("./defects");
+
+afterAll(() => {
+  for (const suffix of ["", "-wal", "-shm"]) rmSync(DB + suffix, { force: true });
+});
 
 function record(n: number, over: Partial<Parameters<typeof recordDefect>[0]> = {}) {
   for (let i = 0; i < n; i += 1) {
@@ -153,5 +169,18 @@ describe("normaliseQuote with a reason", () => {
 
   it("falls back to the quote when no change can be derived", () => {
     expect(normaliseQuote("spelling", "배상율", "설명 없음")).toBe("spelling:배상율");
+  });
+});
+
+describe("_resetForTests 안전장치", () => {
+  it("운영 경로에서는 거부한다", async () => {
+    // The guard exists because this function silently emptied the production
+    // store for a while. Testing it in a separate module instance is the only
+    // way to exercise the refusal without pointing this suite at that store.
+    const prev = process.env.DEFECTS_DB_PATH;
+    process.env.DEFECTS_DB_PATH = "/Users/someone/.hermes/business-web-data/defects.db";
+    const mod = await import(`./defects?guard=${Date.now()}`);
+    expect(() => mod._resetForTests()).toThrow(/test database/);
+    process.env.DEFECTS_DB_PATH = prev;
   });
 });

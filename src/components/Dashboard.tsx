@@ -26,31 +26,46 @@ interface WorkspaceMeta {
 }
 
 export default function Dashboard({ workspaces }: { workspaces: WorkspaceMeta[] }) {
-  const [items, setItems] = useState<ActionItem[]>([]);
+  // null until a load succeeds. Starting at [] made a failed fetch render as
+  // "담긴 액션이 없습니다" — the two sibling pages get this right by leaving
+  // their payload null, and this one was the outlier.
+  const [items, setItems] = useState<ActionItem[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  /** A status change that did not stick, so the click is not silently lost. */
+  const [writeError, setWriteError] = useState<string | null>(null);
   const [summary, setSummary] = useState<ActionSummary | null>(null);
   const [filter, setFilter] = useState<"active" | "done" | "all">("active");
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
     const q = filter === "all" ? "" : `?status=${filter}`;
+    setFailed(false);
     fetch(`/api/actions${q}`)
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d: { items: ActionItem[]; summary: ActionSummary }) => {
         setItems(d.items);
         setSummary(d.summary);
       })
-      .catch(() => undefined)
+      .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, [filter]);
 
   useEffect(load, [load]);
 
   async function patch(item: ActionItem, status: ActionStatus) {
-    await fetch("/api/actions", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: item.id, status }),
-    }).catch(() => undefined);
+    setWriteError(null);
+    try {
+      const res = await fetch("/api/actions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: item.id, status }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      // The click has to leave a mark. Swallowing this reloaded the old state
+      // and looked exactly like a checkbox that does nothing.
+      setWriteError("상태를 바꾸지 못했습니다. 다시 눌러 보세요.");
+    }
     load();
   }
 
@@ -98,6 +113,13 @@ export default function Dashboard({ workspaces }: { workspaces: WorkspaceMeta[] 
           </Link>
         </div>
 
+        {writeError && (
+          <p className="mt-2 rounded-lg border px-3 py-2 text-xs"
+             style={{ borderColor: "var(--color-warn)", color: "var(--color-warn)" }}>
+            {writeError}
+          </p>
+        )}
+
         {/* Per-domain dashboards. This page answers "everything outstanding",
             which is the right first question and the wrong second one: acting
             on 계약 means seeing 계약 alone, with its own workspaces and its own
@@ -128,7 +150,17 @@ export default function Dashboard({ workspaces }: { workspaces: WorkspaceMeta[] 
 
         {loading ? (
           <p className="mt-6 text-sm text-ink-soft">불러오는 중…</p>
-        ) : items.length === 0 ? (
+        ) : failed ? (
+          <div className="mt-6 rounded-xl border bg-surface px-4 py-8 text-center"
+               style={{ borderColor: "var(--color-warn)" }}>
+            <p className="text-sm" style={{ color: "var(--color-warn)" }}>
+              목록을 불러오지 못했습니다.
+            </p>
+            <p className="mt-1.5 text-xs text-ink-soft">
+              비어 있는 것이 아니라 읽기에 실패한 것입니다. 새로고침해 보세요.
+            </p>
+          </div>
+        ) : (items ?? []).length === 0 ? (
           <div className="mt-6 rounded-xl border border-line bg-surface px-4 py-8 text-center">
             <p className="text-sm">담긴 액션이 없습니다.</p>
             <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">
@@ -138,7 +170,7 @@ export default function Dashboard({ workspaces }: { workspaces: WorkspaceMeta[] 
           </div>
         ) : (
           <ul className="mt-4 flex flex-col gap-2">
-            {items.map((item) => (
+            {(items ?? []).map((item) => (
               <ActionRow
                 key={item.id}
                 item={item}

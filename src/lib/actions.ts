@@ -289,7 +289,24 @@ export function summarise(filter: ListFilter = {}): ActionSummary {
   };
 }
 
-/** Test seam — lets a suite start from a known state. */
-export function _resetForTests(): void {
+/**
+ * Test seam — lets a suite start from a known state.
+ *
+ * Refuses to run against a path that is not obviously a test database. This
+ * function once emptied the production store on every `beforeEach` because a
+ * test file imported the module statically and never set ACTIONS_DB_PATH: the wipe
+ * was silent, and the loss only surfaced when a page that should have had rows
+ * showed none. A loud failure is the only version of this worth having.
+ */
+export function _resetForTests(): void {{
+  const path = DB_PATH;
+  const looksLikeTest =
+    /(^|\/)(tmp|temp|T)\//i.test(path) || /test|vitest/i.test(path.split("/").pop() ?? "");
+  if (!looksLikeTest) {{
+    throw new Error(
+      `_resetForTests refused: ${{path}} is not a test database. ` +
+        `Set ACTIONS_DB_PATH to a temp path before importing this module.`,
+    );
+  }}
   conn().exec("DELETE FROM action_items");
-}
+}}
