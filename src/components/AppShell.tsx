@@ -189,11 +189,11 @@ export default function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="hidden shrink-0 justify-end border-b border-line bg-surface px-3 py-1 sm:flex">
           <div className="flex items-center gap-0.5">
-            {/* The name under the icon, not only in a tooltip. Five unlabelled
-                glyphs in a corner are a guessing game until you have learned
-                them, and this is where someone lands who does not know the app
-                yet. There is room for it here — that was the reason for moving
-                out of the sidebar. */}
+            {/* The name under the icon, not only in a tooltip. A row of
+                unlabelled glyphs in a corner is a guessing game until you have
+                learned them, and this is where someone lands who does not know
+                the app yet. There is room for it here — that was the reason for
+                moving out of the sidebar. */}
             {UTILITIES.map((u) => (
               <Link
                 key={u.href}

@@ -1,11 +1,18 @@
 /**
- * The pages that are about the system rather than about the work.
+ * The pages that belong to no single workspace.
  *
  * They have moved twice: from a stack of text links at the bottom of the
  * sidebar, to an icon row at its top, to the top-right of the page. The last
  * move is the one that fits — the sidebar is a narrow column already holding
  * seven domains and twenty-five workspaces, while the header band has an empty
  * right half on every page.
+ *
+ * 다음 액션 was held back from that move on the grounds that it is about the
+ * work while the rest are about the system. That distinction is real but it is
+ * not the one the corner encodes: what the corner means is "reachable from
+ * anywhere, belongs to nothing", and outstanding actions across every
+ * workspace is exactly that. Leaving it alone at the foot of the sidebar made
+ * the most-visited of the six the only one somewhere else.
  *
  * Defined here rather than in either component because three places render
  * them now (the page corner, the collapsed rail, the narrow-screen bar) and a
@@ -28,6 +35,14 @@ export interface Utility {
 }
 
 export const UTILITIES: readonly Utility[] = [
+  {
+    // First, because it is the one opened daily; the rest are set once and
+    // then checked when something looks wrong.
+    href: "/dashboard",
+    label: "다음 액션",
+    // A check — work that is outstanding until it is not.
+    path: "M2.5 8.5 6 12l7.5-8",
+  },
   {
     href: "/improvement",
     label: "반복되는 결함",

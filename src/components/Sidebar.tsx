@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { STAGES, type Stage } from "@/lib/agents";
 import { STAGE_META } from "@/lib/stage-meta";
 import StageIcon from "./StageIcon";
-import { UTILITIES, UtilityIcon } from "./utilities";
 
 export interface NavItem {
   slug: string;
@@ -44,6 +43,37 @@ const STORE_KEY = "business-web:nav-collapsed";
  * The colour and icon are the same ones the home board uses, which is the point
  * — someone learns the domain's look once and then navigates by it.
  */
+/**
+ * Fold / unfold, in the sidebar header.
+ *
+ * Icon-only when expanded: the header row is already carrying the product name
+ * and a subtitle, and a chevron pointing at the edge it collapses toward needs
+ * no word beside it. The name stays in the tooltip and the accessible label.
+ */
+function FoldToggle({ rail = false, onClick }: { rail?: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      title={rail ? "사이드바 펼치기" : "사이드바 접기"}
+      aria-label={rail ? "사이드바 펼치기" : "사이드바 접기"}
+      aria-expanded={!rail}
+      className={`flex shrink-0 items-center justify-center rounded-md text-ink-soft transition-colors hover:bg-canvas hover:text-ink ${
+        rail ? "size-8" : "size-7"
+      }`}
+    >
+      <svg viewBox="0 0 16 16" fill="none" className="size-3.5" aria-hidden>
+        <path
+          d={rail ? "M6 3.5 10.5 8 6 12.5" : "M10 3.5 5.5 8 10 12.5"}
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </button>
+  );
+}
+
 export default function Sidebar({
   nav,
   slug,
@@ -124,36 +154,10 @@ export default function Sidebar({
     .filter((n): n is NavItem => Boolean(n))
     .slice(0, 5);
 
-  /**
-   * What is stored, alongside the link to it.
-   *
-   * The corpus decays quietly: a document copied in by hand is invisible to
-   * search, and an empty corpus makes every contract review answer from the
-   * model's own knowledge while looking exactly as confident. Both were only
-   * discoverable by opening a page on purpose, which is to say not discovered.
-   *
-   * A count here is the cheap version of noticing. It is a number and a dot,
-   * not a panel — the detail already has a page, and the sidebar's job is to
-   * say whether that page is worth opening today.
-   */
-  const [stores, setStores] = useState<{ docs: number; staged: number; warn: boolean } | null>(null);
-  useEffect(() => {
-    let live = true;
-    fetch("/api/stores")
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d: { corpus: { documents: unknown[] }; staging: { files: unknown[] }; findings: { severity: string }[] }) => {
-        if (!live) return;
-        setStores({
-          docs: d.corpus.documents.length,
-          staged: d.staging.files.length,
-          warn: d.findings.some((f) => f.severity === "urgent"),
-        });
-      })
-      .catch(() => undefined);
-    return () => {
-      live = false;
-    };
-  }, []);
+  /* The store dot used to live here too, beside a count. It is in the corner
+     row now with the icon it belongs to, and this component was still fetching
+     /api/stores on every page to render nothing — a second request for a
+     number AppShell had already asked for. */
 
   // The drawer is never a rail: it opens because there is no room for a
   // sidebar, and a rail inside it would be a nav folded twice.
@@ -165,6 +169,12 @@ export default function Sidebar({
         collapsed && !forceVisible ? "w-14" : "w-64"
       } ${forceVisible ? "flex h-full" : "hidden sm:flex"}`}
     >
+      {/* The fold toggle sits in this header rather than at the foot of the
+          column. It had been at the bottom, out of the way of the links — but
+          "out of the way" also meant a scroll past twenty-five workspaces to
+          reach it, and in the folded state it was the only way back and the
+          last thing you would look at. A control that changes the shape of the
+          panel belongs on the panel's edge, next to its name. */}
       {rail ? (
         <div className="flex flex-col items-center gap-1 border-b border-line py-3">
           <Link
@@ -177,27 +187,47 @@ export default function Sidebar({
               영
             </span>
           </Link>
+          {onToggleCollapsed && <FoldToggle rail onClick={onToggleCollapsed} />}
         </div>
       ) : (
-        <Link
-          href="/"
-          aria-current={slug ? undefined : "page"}
-          className={`flex items-center gap-2 border-b border-line px-4 py-3.5 hover:bg-canvas ${
+        <div
+          className={`flex items-center border-b border-line pl-4 pr-1.5 ${
             slug ? "" : "bg-canvas"
           }`}
         >
-          <span className="flex size-6 items-center justify-center rounded-md bg-accent text-[11px] font-bold text-white">
-            영
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold leading-tight">
-              영업 에이전트
+          <Link
+            href="/"
+            aria-current={slug ? undefined : "page"}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-3.5 hover:text-accent"
+          >
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-accent text-[11px] font-bold text-white">
+              영
             </span>
-            <span className="block text-[11px] leading-tight text-ink-soft">
-              전체 업무 보기
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold leading-tight">
+                영업 에이전트
+              </span>
+              <span className="block text-[11px] leading-tight text-ink-soft">
+                전체 업무 보기
+              </span>
             </span>
-          </span>
-        </Link>
+          </Link>
+          {onToggleCollapsed && <FoldToggle onClick={onToggleCollapsed} />}
+        </div>
+      )}
+
+      {/* 새 대화 시작 was at the foot of the column too. It acts on the
+          conversation in the pane to the right, so it reads as a heading for
+          what follows rather than a footer under the nav. */}
+      {!rail && onReset && (
+        <div className="px-2.5 pt-2.5">
+          <button
+            onClick={onReset}
+            className="w-full rounded-md border border-line px-2.5 py-1.5 text-xs text-ink-soft hover:border-accent hover:text-accent"
+          >
+            새 대화 시작
+          </button>
+        </div>
       )}
 
       {rail ? (
@@ -363,110 +393,6 @@ export default function Sidebar({
       </div>
       )}
 
-      <div className="border-t border-line p-2.5">
-        {/* The toggle lives with the nav it folds, at the bottom where it is out
-            of the way of the thing people actually came to click. */}
-        {onToggleCollapsed && (
-          <button
-            onClick={onToggleCollapsed}
-            title={rail ? "사이드바 펼치기" : "사이드바 접기"}
-            aria-label={rail ? "사이드바 펼치기" : "사이드바 접기"}
-            aria-expanded={!rail}
-            className={`mb-1.5 flex items-center gap-2 rounded-md py-1.5 text-xs text-ink-soft transition-colors hover:bg-canvas hover:text-ink ${
-              rail ? "w-full justify-center" : "w-full px-2.5"
-            }`}
-          >
-            <svg viewBox="0 0 16 16" fill="none" className="size-3.5 shrink-0" aria-hidden>
-              <path
-                d={rail ? "M6 3.5 10.5 8 6 12.5" : "M10 3.5 5.5 8 10 12.5"}
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            {!rail && "접기"}
-          </button>
-        )}
-        {rail ? (
-          // Only the daily one survives the fold. The settings pages are visited
-          // once; putting five unlabelled icons in a 56px column to reach them
-          // trades a clear nav for a guessing game.
-          <>
-            <Link
-              href="/dashboard"
-              title="다음 액션"
-              aria-label="다음 액션"
-              className="flex w-full justify-center rounded-md py-1.5 text-ink-soft hover:bg-canvas hover:text-ink"
-            >
-              <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden>
-                <path
-                  d="M2.5 8.5 6 12l7.5-8"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </Link>
-            {/* The same four, stacked. Folded is where an icon-only nav is
-                already the language, so they cost nothing extra here — and
-                dropping them would make collapsing the sidebar the way to lose
-                half the app. */}
-            {UTILITIES.map((u) => (
-              <Link
-                key={u.href}
-                href={u.href}
-                title={u.label}
-                aria-label={u.label}
-                className="relative flex w-full justify-center rounded-md py-1.5 text-ink-soft hover:bg-canvas hover:text-ink"
-              >
-                <UtilityIcon path={u.path} />
-                {u.href === "/stores" && stores?.warn && (
-                  <span
-                    className="absolute right-2.5 top-1 size-1.5 rounded-full"
-                    style={{ backgroundColor: "var(--color-warn)" }}
-                    aria-label="확인 필요"
-                  />
-                )}
-              </Link>
-            ))}
-          </>
-        ) : (
-          <>
-        {onReset && (
-          <button
-            onClick={onReset}
-            className="mb-1.5 w-full rounded-md border border-line px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas"
-          >
-            새 대화 시작
-          </button>
-        )}
-        {/* Above the settings link, because outstanding work is something you
-            check daily and permissions are something you set once. */}
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas hover:text-ink"
-        >
-          <svg viewBox="0 0 16 16" className="size-3.5 shrink-0" aria-hidden>
-            <path
-              d="M2.5 8.5 6 12l7.5-8"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          다음 액션
-        </Link>
-        {/* 반복되는 결함 · 문서와 저장소 · 접근 권한 · Confluence 는 상단
-            아이콘 바로 옮겼다. 여기 남은 둘은 업무에 대한 것이고, 옮긴 넷은
-            시스템에 대한 것이다. */}
-          </>
-        )}
-      </div>
     </aside>
   );
 }
