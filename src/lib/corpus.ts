@@ -35,6 +35,7 @@ import { mkdir, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
+import { searchViaWorker, stopSearchWorker, type WorkerConfig } from "./search-worker";
 
 const run = promisify(execFile);
 
@@ -121,6 +122,7 @@ export async function ingestDocument(
   }
 
   const docs = await corpusDocuments();
+  stopSearchWorker();
   return {
     ok: true,
     documents: docs.length,
@@ -155,6 +157,10 @@ export async function reindexCorpus(): Promise<IngestResult> {
     const detail = err instanceof Error ? err.message.slice(0, 160) : "";
     return { ok: false, documents: docs.length, message: `색인에 실패했습니다. ${detail}` };
   }
+  // The running worker has the previous index in memory and would keep serving
+  // it. The mtime check catches this too, but killing it here means the next
+  // search starts a fresh one rather than discovering the staleness itself.
+  stopSearchWorker();
   return { ok: true, documents: docs.length, message: `색인 완료 — 계약서 ${docs.length}건` };
 }
 
@@ -170,8 +176,38 @@ export interface CorpusHit {
  * Hybrid BM25 + graph retrieval over the corpus. No LLM involved — this is
  * retrieval, and the agent does the reasoning with what comes back.
  */
+/**
+ * Warm-worker settings. The script lives in this repo rather than docparser's:
+ * it is our integration, and vendoring it into their tree would make an upgrade
+ * over there silently drop it.
+ */
+function workerConfig(): WorkerConfig {
+  return {
+    python: join(DOCPARSER_DIR, ".venv", "bin", "python"),
+    script: join(process.cwd(), "scripts", "search-worker.py"),
+    docparserSrc: join(DOCPARSER_DIR, "src"),
+    cwd: DOCPARSER_DIR,
+    dataDir: DATA_DIR,
+    graphOut: GRAPH_DIR,
+  };
+}
+
 export async function searchCorpus(query: string, topK = 5): Promise<CorpusHit[]> {
   if (!corpusAvailable() || !corpusIndexed()) return [];
+
+  // The warm worker answers in milliseconds; the CLI pays ~200ms of imports and
+  // up to 880ms of embedding-model load on every invocation. Falling back to it
+  // keeps a broken worker slow rather than fatal.
+  // An operational off switch. If the worker ever misbehaves in a way this code
+  // does not anticipate, the slow path is one environment variable away rather
+  // than a deploy.
+  if (process.env.CORPUS_SEARCH_WORKER !== "off") {
+    try {
+      return parseHits(await searchViaWorker(workerConfig(), query, topK));
+    } catch {
+      // fall through to the CLI
+    }
+  }
 
   try {
     const { stdout } = await run(
