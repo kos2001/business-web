@@ -57,6 +57,15 @@ export default function AnswerCheck({
 }) {
   const [review, setReview] = useState<AnswerReview | null>(null);
   const [failed, setFailed] = useState(false);
+  /**
+   * Saving the answer to Obsidian.
+   *
+   * The button only exists where the vault does — a control that always errors
+   * is worse than no control, the same rule the Confluence import follows.
+   */
+  const [vaultOn, setVaultOn] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -77,6 +86,34 @@ export default function AnswerCheck({
     // the turn, and re-checking the same text would only cost another run.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answer]);
+
+  useEffect(() => {
+    fetch("/api/note")
+      .then((r) => r.json())
+      .then((d: { configured?: boolean }) => setVaultOn(Boolean(d.configured)))
+      .catch(() => setVaultOn(false));
+  }, []);
+
+  async function saveToVault() {
+    setSaving(true);
+    try {
+      // The first line of the answer is its subject far more reliably than any
+      // title we could invent from the workspace name.
+      const first = answer.split("\n").find((l) => l.replace(/[#*>\s]/g, "").length > 4) ?? "";
+      const title = first.replace(/^[#>*\s]+/, "").slice(0, 60).trim() || `${workspace} 답변`;
+      const res = await fetch("/api/note", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, workspace, body: answer, sources: sourcePaths }),
+      });
+      const d = (await res.json()) as { name?: string; error?: string };
+      setSaved(res.ok ? `노트로 저장됨 — ${d.name}` : (d.error ?? "저장하지 못했습니다."));
+    } catch {
+      setSaved("저장하지 못했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   if (failed) {
     return (
@@ -121,9 +158,19 @@ export default function AnswerCheck({
     .filter((s) => s.kind === "unsourced-number")
     .map((s) => s.evidence);
 
+  const saveButton = vaultOn ? (
+    <button
+      onClick={() => void saveToVault()}
+      disabled={saving || saved !== null}
+      className="rounded-md border border-line px-2 py-0.5 text-[11px] text-ink-soft transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
+    >
+      {saving ? "저장 중…" : saved ? "저장됨" : "노트로 저장"}
+    </button>
+  ) : null;
+
   if (problems.length === 0) {
     return (
-      <p className="px-1 text-[11px] text-ink-soft">
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[11px] text-ink-soft">
         {review.ran ? `${by} 통과` : "검수 미실행 — 확인되지 않았습니다"}
         {unsourced.length > 0 && (
           <>
@@ -133,6 +180,8 @@ export default function AnswerCheck({
             </span>
           </>
         )}
+        {saveButton}
+        {saved && <span>{saved}</span>}
       </p>
     );
   }
@@ -188,9 +237,11 @@ export default function AnswerCheck({
           >
             이 문제들을 알려주고 다시 작성
           </button>
+          {saveButton}
           <span className="text-[11px] text-ink-soft">
             위 답변은 지우지 않고 아래에 새로 붙습니다.
           </span>
+          {saved && <span className="text-[11px] text-ink-soft">{saved}</span>}
         </div>
       )}
     </section>

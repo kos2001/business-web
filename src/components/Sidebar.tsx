@@ -192,6 +192,12 @@ export default function Sidebar({
       // A link.
       path: "M6.5 9.5a3 3 0 0 0 4.24 0l2-2a3 3 0 0 0-4.24-4.24l-.7.7M9.5 6.5a3 3 0 0 0-4.24 0l-2 2a3 3 0 0 0 4.24 4.24l.7-.7",
     },
+    {
+      href: "/settings/obsidian",
+      label: "Obsidian 노트",
+      // A note with a folded corner.
+      path: "M9.5 2H4.5A1.5 1.5 0 0 0 3 3.5v9A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V5.5L9.5 2zM9.5 2v3.5H13M5.5 8.5h5M5.5 11h3",
+    },
   ] as const;
 
   const utilIcon = (d: string) => (
