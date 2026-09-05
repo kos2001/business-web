@@ -109,6 +109,15 @@ export function normaliseQuote(kind: DefectKind, quote: string, reason = ""): st
     const change = spellingChange(quote, reason);
     if (change) return `spelling:${change}`;
   }
+  // For a wrong figure or citation the quote is wherever the mistake landed —
+  // "민법 제393조", "민법 제393조 감액", "제393조에 따라 감액" are one error
+  // reported three ways. What is stable is the correction, because the right
+  // answer does not change with the sentence around it. Seeding the page showed
+  // this: three reports of one wrong statute grouped as three patterns of one,
+  // which is to say the loop could never see a recurring number error at all.
+  if (kind === "number" && reason.trim()) {
+    return `number:${reason.replace(/\s+/g, " ").trim().slice(0, 60)}`;
+  }
   const base = quote
     .replace(/[“”"'’‘]/g, "")
     .replace(/\s+/g, " ")
@@ -134,6 +143,29 @@ export function normaliseQuote(kind: DefectKind, quote: string, reason = ""): st
  * Returns null when the two share nothing, which means this is a wrong word
  * rather than a mistyped one; the quote is the better key for that.
  */
+/**
+ * The slice of `wrong` that `right` is correcting.
+ *
+ * Returns `wrong` unchanged when nothing aligns better, so a genuinely
+ * different word still falls through to the "not a typo" path below.
+ */
+function bestWindow(wrong: string, right: string): string {
+  if (wrong.length <= right.length) return wrong;
+  let best = wrong.slice(0, right.length);
+  let bestScore = -1;
+  for (let i = 0; i + right.length <= wrong.length; i += 1) {
+    const w = wrong.slice(i, i + right.length);
+    let same = 0;
+    for (let j = 0; j < right.length; j += 1) if (w[j] === right[j]) same += 1;
+    if (same > bestScore) {
+      bestScore = same;
+      best = w;
+    }
+  }
+  // Barely overlapping means this is a different word, not a mistyped one.
+  return bestScore >= Math.ceil(right.length / 2) ? best : wrong;
+}
+
 export function spellingChange(quote: string, reason: string): string | null {
   const wrong = quote.replace(/[“”"'’‘\s]/g, "");
   const right = (/[‘'"“]([^’'"”]{1,40})[’'"”]/.exec(reason)?.[1] ?? "").replace(
@@ -142,18 +174,24 @@ export function spellingChange(quote: string, reason: string): string | null {
   );
   if (!wrong || !right || wrong === right) return null;
 
+  // The reviewer quotes as much of the phrase as it likes, so the correction is
+  // often shorter than the quote — "배상율 인하" corrected to "배상률". Diffing
+  // them whole yielded 율인하→률 and split one habit into two patterns. Sliding
+  // the correction across the quote finds the part it is actually correcting.
+  const window = bestWindow(wrong, right);
+
   let head = 0;
-  while (head < wrong.length && head < right.length && wrong[head] === right[head]) head += 1;
+  while (head < window.length && head < right.length && window[head] === right[head]) head += 1;
   let tail = 0;
   while (
-    tail < wrong.length - head &&
+    tail < window.length - head &&
     tail < right.length - head &&
-    wrong[wrong.length - 1 - tail] === right[right.length - 1 - tail]
+    window[window.length - 1 - tail] === right[right.length - 1 - tail]
   ) {
     tail += 1;
   }
 
-  const from = wrong.slice(head, wrong.length - tail);
+  const from = window.slice(head, window.length - tail);
   const to = right.slice(head, right.length - tail);
   // Nothing shared: a different word, not a typo of this one.
   if (!from && !to) return null;
