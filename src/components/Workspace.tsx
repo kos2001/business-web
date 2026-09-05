@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Fragment, useEffect, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import Markdown from "./Markdown";
 import { useRun, type Attachment } from "./useRun";
 import AppShell from "./AppShell";
 import type { HealthMap, NavItem } from "./Sidebar";
@@ -552,7 +552,7 @@ export default function Workspace({
                 // no edge for a table to butt against.
                 <>
                   <article className="prose-agent max-w-none rounded-xl border border-line bg-surface px-4 py-3.5 text-sm">
-                    <ReactMarkdown>{turn.text}</ReactMarkdown>
+                    <Markdown>{turn.text}</Markdown>
                   </article>
                   {/* The check runs before the capture panel: deciding whether
                       an answer is trustworthy comes before deciding which of
@@ -595,7 +595,7 @@ export default function Workspace({
 
             {run.streaming && (
               <article className="prose-agent max-w-none rounded-xl border border-line bg-surface px-4 py-3.5 text-sm">
-                <ReactMarkdown>{run.streaming}</ReactMarkdown>
+                <Markdown>{run.streaming}</Markdown>
               </article>
             )}
 
