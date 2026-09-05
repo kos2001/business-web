@@ -105,12 +105,37 @@ export default function Improvement() {
             결함 기록을 읽지 못했습니다. 아직 아무것도 기록되지 않았을 수 있습니다.
           </p>
         ) : patterns.length === 0 ? (
-          <div className="mt-6 rounded-xl border border-line bg-surface px-4 py-8 text-center">
-            <p className="text-sm">최근 {days}일 동안 반복된 결함이 없습니다.</p>
-            <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">
-              같은 문제가 세 번 나타나면 여기 올라옵니다. 한두 번은 답변에서 고치고,
-              반복되면 규칙으로 고칩니다.
-            </p>
+          /* "반복이 없다"와 "아무것도 기록되지 않았다"는 화면에서 같아 보이지만
+             전혀 다른 상황이다. 전자는 정상이고, 후자는 검수가 기록까지
+             도달하지 않는다는 뜻 — 실제로 테스트가 이 저장소를 매번 비우고
+             있었고, 그동안 이 화면은 조용히 "문제 없음"처럼 보였다. */
+          <div className="mt-6 rounded-xl border bg-surface px-4 py-8 text-center"
+               style={{
+                 borderColor: summary && summary.total === 0
+                   ? "var(--color-warn)" : "var(--color-line)",
+               }}>
+            {summary && summary.total === 0 ? (
+              <>
+                <p className="text-sm" style={{ color: "var(--color-warn)" }}>
+                  최근 {days}일 동안 기록된 결함이 하나도 없습니다.
+                </p>
+                <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">
+                  답변을 몇 번 받았다면 맞춤법이든 수치든 무언가는 잡혔어야 합니다.
+                  아무것도 없다는 것은 검수 결과가 저장소까지 도달하지 않는다는
+                  뜻일 수 있습니다 — 워크스페이스에서 답변을 하나 받아 보고도
+                  비어 있으면 기록 경로를 확인해야 합니다.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm">최근 {days}일 동안 반복된 결함이 없습니다.</p>
+                <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">
+                  검수는 {summary?.total ?? 0}건을 잡았고, 그중 세 번 이상 되풀이된
+                  것은 없습니다. 한두 번은 답변에서 고치고, 반복되면 규칙으로
+                  고칩니다.
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <ul className="mt-4 flex flex-col gap-2">
