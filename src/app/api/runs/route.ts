@@ -1,9 +1,7 @@
-import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { findAgent } from "@/lib/agents";
 import { errorResponse } from "@/lib/api-errors";
 import { startRun } from "@/lib/hermes";
-import { reserve } from "@/lib/pending-runs";
 import { redact } from "@/lib/redact";
 import { corpusIndexed, searchCorpus } from "@/lib/corpus";
 
@@ -33,45 +31,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unknown agent" }, { status: 404 });
   }
 
-  const isReport = body.action === "report";
-  if (isReport && agent.backend !== "mi-report") {
+  // The report action belonged to the mi-report backend's own authoring
+  // pipeline. Nothing serves it now, and accepting it silently would start an
+  // ordinary chat turn with an empty prompt.
+  if (body.action === "report") {
     return NextResponse.json(
-      { error: "이 워크스페이스는 리포트 생성을 지원하지 않습니다." },
+      { error: "리포트 생성 백엔드가 더 이상 없습니다. 질문으로 물어보세요." },
       { status: 400 },
     );
   }
 
   const raw = String(body.input ?? "").trim();
-  if (!raw && !isReport) {
+  if (!raw) {
     return NextResponse.json({ error: "Empty input" }, { status: 400 });
   }
 
   // Redaction runs server-side and defaults on. See src/lib/redact.ts.
   const protect = body.protect !== false;
   const { text, hits } = protect ? redact(raw) : { text: raw, hits: {} };
-
-  // The proxied backends produce their answer from the same request that starts
-  // it, so there is nothing to start here — reserve an id and let the events
-  // route drive it. See src/lib/pending-runs.ts for why the split exists.
-  if (agent.backend !== "hermes") {
-    const runId = `px_${randomUUID().replace(/-/g, "")}`;
-    reserve(runId, {
-      prompt: text,
-      sessionId: body.sessionId,
-      kind:
-        agent.backend === "marketing-agent"
-          ? "diagnose"
-          : isReport
-            ? "report"
-            : "chat",
-    });
-    return NextResponse.json({
-      run_id: runId,
-      status: "started",
-      agent: agent.slug,
-      redacted: hits,
-    });
-  }
 
   // Contract work turns on precedent — what our standard says, what we agreed
   // with this customer last time. Retrieving it here rather than asking the

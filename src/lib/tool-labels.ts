@@ -44,16 +44,6 @@ const EXACT: Record<string, ToolLabel> = {
   memory: { label: "기억 조회", kind: "search" },
   context_engine: { label: "맥락 정리", kind: "search" },
 
-  // mi-report's pipeline stages arrive as tool names too.
-  digest_generate: { label: "뉴스 다이제스트 생성", kind: "compute" },
-  priority_risk: { label: "우선순위·리스크 분석", kind: "compute" },
-  critical_point: { label: "관리 포인트 분석", kind: "compute" },
-  rag: { label: "코퍼스 검색", kind: "search" },
-
-  // marketing-agent's synthetic progress frames.
-  source_register: { label: "자료 등록", kind: "document" },
-  pipeline_run: { label: "10개 에이전트 분석", kind: "compute" },
-
   terminal: { label: "자료 처리", kind: "compute" },
   code_execution: { label: "계산 실행", kind: "compute" },
   todo: { label: "작업 정리", kind: "other" },

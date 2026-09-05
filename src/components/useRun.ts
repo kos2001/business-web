@@ -157,9 +157,8 @@ export function useRun(agent: string, sessionId: string) {
       input: string,
       protect: boolean,
       files: Attachment[] = [],
-      action?: "report",
     ) => {
-      if (state !== "idle" || (!input.trim() && files.length === 0 && !action)) return;
+      if (state !== "idle" || (!input.trim() && files.length === 0)) return;
       setError(null);
       setTools([]);
       setRedacted({});
@@ -198,7 +197,6 @@ export function useRun(agent: string, sessionId: string) {
             agent,
             input: prompt,
             protect,
-            ...(action ? { action } : {}),
             sessionId,
             history: turnsRef.current.map((t) => ({
               role: t.role === "agent" ? "assistant" : "user",

@@ -32,7 +32,7 @@ describe("labelForTool", () => {
     expect(labelForTool("skill_view").kind).toBe("playbook");
     expect(labelForTool("read_file").kind).toBe("document");
     expect(labelForTool("web_search").kind).toBe("search");
-    expect(labelForTool("pipeline_run").kind).toBe("compute");
+    expect(labelForTool("terminal").kind).toBe("compute");
   });
 });
 

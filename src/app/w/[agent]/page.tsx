@@ -26,7 +26,6 @@ export default async function AgentPage({
         blurb={agent.blurb}
         stage={agent.stage}
         starters={agent.starters}
-        actions={agent.actions}
         corpus={agent.corpus ?? false}
         // The backend behind this workspace, named on screen. Three different
         // ones answer here and their models differ; an answer that does not say

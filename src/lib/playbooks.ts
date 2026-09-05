@@ -35,8 +35,14 @@ export const ALWAYS_ON_PLAYBOOK = "customer-data-handling";
 
 /** Playbooks by the domain of work they serve. Order is the nav order. */
 export const PLAYBOOKS_BY_DOMAIN = {
-  "시장·사업 동향": ["market-trend-brief", "market-sizing", "account-brief"],
+  "시장·사업 동향": [
+    "market-trend-brief",
+    "market-sizing",
+    "market-intel-brief",
+    "account-brief",
+  ],
   판매전략: [
+    "performance-diagnosis",
     "sales-target-setting",
     "sales-plan",
     "sales-execution-tracking",

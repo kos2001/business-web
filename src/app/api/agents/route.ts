@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { AGENTS } from "@/lib/agents";
 import { listSkills, upstreamHealth } from "@/lib/hermes";
-import { maHealthy } from "@/lib/marketing-agent";
 import { missingPlaybooks } from "@/lib/playbook-health";
-import { miHealthy } from "@/lib/mi-report";
 
 export const dynamic = "force-dynamic";
 
@@ -18,21 +16,12 @@ export const dynamic = "force-dynamic";
  * playbooks are checked separately and reported per workspace.
  */
 export async function GET() {
-  const hermesUpstreams = [
-    ...new Set(AGENTS.filter((a) => a.backend === "hermes").map((a) => a.upstream)),
-  ];
+  const upstreams = [...new Set(AGENTS.map((a) => a.upstream))];
 
-  const [health, mi, ma, skillsByUpstream] = await Promise.all([
+  const [health, skillsByUpstream] = await Promise.all([
     upstreamHealth().catch(() => ({}) as Record<string, string>),
-    miHealthy().catch(() => false),
-    maHealthy().catch(() => false),
-    skillsFor(hermesUpstreams),
+    skillsFor(upstreams),
   ]);
-
-  const proxied: Record<string, boolean> = {
-    "mi-report": mi,
-    "marketing-agent": ma,
-  };
 
   return NextResponse.json({
     agents: AGENTS.map((a) => ({
@@ -41,12 +30,7 @@ export async function GET() {
       blurb: a.blurb,
       stage: a.stage,
       starters: a.starters,
-      status:
-        a.backend === "hermes"
-          ? (health[a.upstream] ?? "unknown")
-          : proxied[a.backend]
-            ? "ok"
-            : "down",
+      status: health[a.upstream] ?? "unknown",
       // Absent (rather than empty) when the skill list could not be read, so
       // the UI can tell "nothing missing" from "could not check".
       missingPlaybooks: missingPlaybooks(

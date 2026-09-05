@@ -247,6 +247,11 @@ export default function Improvement() {
             <ul className="mt-2 flex flex-col gap-2">
               {visible.map((p) => {
                 const rows = records[p.key];
+                // A single occurrence has nothing behind it: the card already
+                // shows that record's quote, reason, workspace and date, so
+                // opening it repeats the card. Offering the click anyway was
+                // an invitation to find out there is nothing there.
+                const expandable = p.count > 1;
                 return (
                   <FindingCard
                     key={p.key}
@@ -254,7 +259,7 @@ export default function Improvement() {
                     title={`${KIND_LABEL[p.kind] ?? p.kind} · ${p.count}회`}
                     why={p.reason}
                     active={open === p.key}
-                    onClick={() => expand(p.key)}
+                    onClick={expandable ? () => expand(p.key) : undefined}
                     hint={
                       // The spread is the finding. One workspace means the
                       // playbook; several mean the shared SOUL, and a rule in
@@ -282,12 +287,16 @@ export default function Improvement() {
                       <span className="opacity-70">
                         {when(p.firstAt)} 처음 · {when(p.lastAt)} 마지막
                       </span>
-                      <span className="opacity-70">
-                        {open === p.key ? "· 접기" : "· 눌러서 실제 기록 보기"}
-                      </span>
+                      {expandable && (
+                        <span className="opacity-70">
+                          {open === p.key
+                            ? "· 접기"
+                            : `· 눌러서 ${p.count}건의 실제 표현 보기`}
+                        </span>
+                      )}
                     </span>
 
-                    {open === p.key && (
+                    {expandable && open === p.key && (
                       /* 묶는 과정에서 대표 인용 하나만 남고 나머지는 버려진다.
                          규칙을 쓰려면 버려진 쪽이 필요하다 — 배상율 은
                          지연배상율·배상율 인하·연체 배상율 에서 묶인 것이고,
