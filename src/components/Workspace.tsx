@@ -307,7 +307,18 @@ export default function Workspace({
         </button>
       )}
     </div>
-  ) : null;
+  ) : (
+    // Not configured. A quiet pointer rather than nothing at all: the feature
+    // exists, this deployment has not been given credentials, and the person
+    // reading this is the one who can fix that.
+    <p className="mt-2 text-[11px] text-ink-soft">
+      계약서가 Confluence 에 있다면{" "}
+      <a href="/settings/confluence" className="text-accent hover:underline">
+        연결을 설정
+      </a>
+      하면 주소로 가져올 수 있습니다.
+    </p>
+  );
 
   const uploadCta = (
     <button
