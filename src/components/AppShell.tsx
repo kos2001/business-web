@@ -43,6 +43,35 @@ export default function AppShell({
   children: React.ReactNode;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  /**
+   * Folded state, remembered.
+   *
+   * The sidebar remounts on every navigation, so without persistence the first
+   * click would unfold it again and the button would be decorative. It starts
+   * expanded on the server and corrects after mount — reading localStorage
+   * during render is what produces a hydration mismatch.
+   */
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem("sidebar-collapsed") === "1");
+    } catch {
+      // Private windows and blocked site data throw here; expanded is the
+      // right default and no worse than before.
+    }
+  }, []);
+
+  function toggleCollapsed() {
+    setCollapsed((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem("sidebar-collapsed", next ? "1" : "0");
+      } catch {
+        // Not remembering is a smaller failure than not folding.
+      }
+      return next;
+    });
+  }
 
   // A link inside the drawer navigates without unmounting the shell, so the
   // drawer would still be open on the next page. Closing on slug change is the
@@ -111,6 +140,8 @@ export default function AppShell({
         stage={stage}
         recents={recents}
         onReset={onReset}
+        collapsed={collapsed}
+        onToggleCollapsed={toggleCollapsed}
       />
       {children}
     </div>
