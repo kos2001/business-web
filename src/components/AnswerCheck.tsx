@@ -45,10 +45,13 @@ const KIND_LABEL: Record<string, string> = {
 export default function AnswerCheck({
   answer,
   sourcePaths,
+  workspace,
   onRetry,
 }: {
   answer: string;
   sourcePaths: string[];
+  /** Named so a recurring defect can say which playbook produces it. */
+  workspace: string;
   /** Absent while a run is in flight, which is when retrying is meaningless. */
   onRetry?: (faults: string[]) => void;
 }) {
@@ -62,7 +65,7 @@ export default function AnswerCheck({
     fetch("/api/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ answer, sourcePaths }),
+      body: JSON.stringify({ answer, sourcePaths, workspace }),
     })
       .then((r) => (r.ok ? (r.json() as Promise<AnswerReview>) : Promise.reject()))
       .then((d) => live && setReview(d))

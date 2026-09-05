@@ -286,6 +286,12 @@ export default function Sidebar({
           다음 액션
         </Link>
         <Link
+          href="/improvement"
+          className="block rounded-md px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas hover:text-ink"
+        >
+          반복되는 결함
+        </Link>
+        <Link
           href="/stores"
           className="block rounded-md px-2.5 py-1.5 text-xs text-ink-soft hover:bg-canvas hover:text-ink"
         >

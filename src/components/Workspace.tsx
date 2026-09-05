@@ -564,6 +564,7 @@ export default function Workspace({
                       // before this one.
                       run.turns[i - 1]?.sourcePaths ?? []
                     }
+                    workspace={slug}
                     onRetry={
                       // Only the newest answer can be retried, and only while
                       // nothing is running. Offering it on an old turn would
