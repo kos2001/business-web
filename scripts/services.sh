@@ -21,11 +21,14 @@ set -uo pipefail
 UID_="$(id -u)"
 
 # 라벨:포트:표시이름
+#
+# mi-report(:8000) 와 marketing-agent(:8012) 는 여기서 뺐다. 두 워크스페이스가
+# sales-agent 로 옮겨가면서 business-web 은 더 이상 그 서비스들을 부르지 않는다.
+# 각자 별도 저장소의 앱이므로 launchd 등록 자체는 건드리지 않았다 — 이 스크립트가
+# 관리하지 않을 뿐이다. 완전히 내리려면 launchctl 로 직접 unload 해야 한다.
 SERVICES=(
   "ai.hermes.gateway-sales-agent:8660:sales-agent"
   "dev.businessweb.hermes-gateway:8700:hermes-gateway"
-  "dev.businessweb.mi-report:8000:mi-report"
-  "dev.businessweb.marketing-agent:8012:marketing-agent"
   "dev.businessweb.web:3100:business-web"
 )
 

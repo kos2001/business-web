@@ -29,19 +29,19 @@
 import { PLAYBOOKS } from "./playbooks";
 
 /**
- * Which service actually answers.
+ * Which service answers. One does.
  *
- * "hermes"          — a hermes-agent api_server behind hermes-gateway.
- * "mi-report"       — the mi-report FastAPI app, which owns the MI corpus and
- *                     its own retrieval stack.
- * "marketing-agent" — the marketing-agent harness, ten agents that turn raw
- *                     sales/marketing material into a cited diagnosis.
+ * Two workspaces used to route elsewhere — MI 리포트 to the mi-report FastAPI
+ * app and 영업 현황진단 to the marketing-agent harness. Both were separate
+ * services with their own model, their own stream vocabulary and their own
+ * store, and business-web carried an adapter for each to translate them back
+ * into the one protocol the browser understands.
  *
- * Only hermes speaks the run-event protocol natively. The other two are
- * translated to hermes-shaped events server-side (src/lib/mi-report.ts,
- * src/lib/marketing-agent.ts) so the UI only ever sees one protocol.
+ * The union is kept as a type rather than deleted because it names a real
+ * decision: everything this app shows comes from one profile, and anything that
+ * does not would need translating again.
  */
-export type Backend = "hermes" | "mi-report" | "marketing-agent";
+export type Backend = "hermes";
 
 /**
  * Nav groups, in nav order. These are the team's work domains, not deal stages:
@@ -100,14 +100,9 @@ export interface AgentDef {
    * about precedent, and precedent is what the corpus holds.
    */
   corpus?: boolean;
-  /**
-   * One-click jobs that are not a chat turn. Currently only mi-report has one:
-   * its weekly-report pipeline, which is a different endpoint from chat.
-   */
-  actions?: { id: "report"; label: string; hint: string }[];
 }
 
-/** The shared sales profile. Every workspace but MI, 계약서 분석, 현황진단. */
+/** The shared sales profile. Every workspace uses it. */
 const SALES = {
   backend: "hermes",
   upstream: "sales-agent",
@@ -121,24 +116,21 @@ export const AGENTS: AgentDef[] = [
     label: "MI 리포트",
     blurb: "수집된 코퍼스를 근거로 시장·경쟁사 동향에 답합니다.",
     stage: "시장·고객 조사",
-    // Routed to the mi-report app, not the bare hermes profile: the corpus,
-    // retrieval and wiki all live there. `upstream`/`model` are the fallback
-    // used when that backend is unreachable.
-    backend: "mi-report",
-    upstream: "mi-report",
-    model: "mi-report",
-    playbooks: [],
+    ...SALES,
+    // Grounded the same way every other workspace is: the corpus is searched
+    // here and the passages arrive with the question. This used to proxy to a
+    // separate service holding its own corpus, model and wiki.
+    corpus: true,
+    playbooks: ["market-intel-brief"],
+    instructions:
+      "`market-intel-brief` 스킬을 읽고 그 규칙에 따라 답한다. " +
+      "붙어 있는 문서에 있는 것과 없는 것을 반드시 가르고, 사실 문장마다 " +
+      "출처 문서명을 붙인다. 문서로 확인되지 않는 것은 모델 지식으로 " +
+      "메우지 않고 확인되지 않았다고 쓴다.",
     starters: [
       "이번 주 수집된 문서에서 주목할 시장 신호를 정리해 줘.",
       "경쟁사 최근 공시·뉴스에서 우리 영업에 영향 있는 내용만 추려 줘.",
       "고객사 A 관련해 코퍼스에 뭐가 있는지 근거와 함께 알려 줘.",
-    ],
-    actions: [
-      {
-        id: "report",
-        label: "주간 리포트 생성",
-        hint: "다이제스트 · 주제 요약 · 총평 · 근거 검증까지 돌립니다 (수 분 소요)",
-      },
     ],
   },
   {
@@ -643,13 +635,13 @@ export const AGENTS: AgentDef[] = [
     // performance tool in with relationship work and left neither group
     // coherent.
     stage: "판매전략",
-    // Routed to the marketing-agent harness. Ten agents with verbatim-quote
-    // grounding already live there; `upstream`/`model` are unused for this
-    // backend and kept only so the roster type stays uniform.
-    backend: "marketing-agent",
-    upstream: "marketing-agent",
-    model: "marketing-agent",
-    playbooks: [],
+    ...SALES,
+    playbooks: ["performance-diagnosis"],
+    instructions:
+      "`performance-diagnosis` 스킬을 읽고 그 규칙에 따른다. 진단 한 줄마다 " +
+      "붙여넣은 자료의 어느 문장에서 나왔는지 짚고, 짚지 못하는 줄은 지운다. " +
+      "이전 회차 자료가 함께 있으면 같은 항목이 몇 회차째인지 세고, 없으면 " +
+      "반복 여부는 미확인으로 남긴다. 자료에 없는 숫자를 쓰지 않는다.",
     starters: [
       "이번 달 채널별 실적 자료를 붙여넣고 현황진단을 받아 보세요.",
     ],

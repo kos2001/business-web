@@ -22,7 +22,6 @@ export default function Workspace({
   blurb,
   stage,
   starters,
-  actions,
   corpus,
   agent,
   nav,
@@ -32,7 +31,6 @@ export default function Workspace({
   blurb: string;
   stage: Stage;
   starters: string[];
-  actions?: { id: "report"; label: string; hint: string }[];
   /** Contract workspaces can file an upload as precedent. */
   corpus?: boolean;
   /** Named on the trace so the answer is attributable. */
@@ -40,7 +38,7 @@ export default function Workspace({
   nav: NavItem[];
 }) {
   // One session id per workspace per conversation. It scopes hermes's long-term
-  // memory and keys the server-side mi-report session mapping, so starting a new
+  // memory, so starting a new
   // conversation has to mint a new one — clearing the transcript alone would
   // leave the backend continuing the previous thread.
   const [sessionId, setSessionId] = useState(() => newSessionId(slug));
@@ -446,23 +444,6 @@ export default function Workspace({
               isEmpty ? "min-h-full justify-center" : ""
             }`}
           >
-            {isEmpty && actions && actions.length > 0 && (
-              <div className="pt-8">
-                {actions.map((a) => (
-                  <button
-                    key={a.id}
-                    onClick={() =>
-                      void run.send(a.label, protect, [], a.id)
-                    }
-                    className="w-full rounded-lg border border-accent/40 bg-accent/5 px-3.5 py-3 text-left hover:bg-accent/10"
-                  >
-                    <span className="text-sm font-medium text-accent">{a.label}</span>
-                    <span className="mt-0.5 block text-xs text-ink-soft">{a.hint}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
             {isEmpty && (
               <div className="py-6">
                 {/* An anchor for the block. Centred text with no mass reads as

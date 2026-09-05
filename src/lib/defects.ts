@@ -308,6 +308,37 @@ export function recurringPatterns(
   });
 }
 
+/**
+ * The individual records behind one pattern.
+ *
+ * The grouped view answers "how often and how widely", which is what decides
+ * whether to write a rule. It cannot answer "what did it actually say", because
+ * grouping keeps one representative quote and discards the rest — and the rest
+ * is what a person needs to write the rule correctly. 배상율 grouped from
+ * 지연배상율, 배상율 인하 and 연체 배상율; a rule written from any one of those
+ * alone would be narrower than the habit.
+ *
+ * Capped: this feeds a panel that opens inside a list, and a pattern with two
+ * hundred occurrences has nothing more to teach than its first fifty.
+ */
+export function defectsInPattern(
+  key: string,
+  sinceDays = 30,
+  limit = 50,
+  now = Date.now(),
+): Defect[] {
+  const since = new Date(now - sinceDays * 86_400_000).toISOString();
+  return conn()
+    .prepare(
+      `SELECT id, workspace, kind, quote, key, reason, at
+         FROM defects
+        WHERE key = @key AND at >= @since
+        ORDER BY at DESC
+        LIMIT @limit`,
+    )
+    .all({ key, since, limit }) as Defect[];
+}
+
 export interface DefectSummary {
   total: number;
   recurring: number;

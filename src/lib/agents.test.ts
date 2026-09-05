@@ -73,10 +73,9 @@ describe("roster shape", () => {
 
   it("routes every shared-profile workspace with instructions", () => {
     // Workspaces on the shared `sales-agent` profile have no other way to say
-    // which playbook they are for. Ones on a dedicated profile (contract) or a
-    // non-hermes backend (mi-report, diagnosis) do not need them.
+    // which playbook they are for. Ones on a dedicated profile (contract) do
+    // not need them.
     for (const agent of AGENTS) {
-      if (agent.backend !== "hermes") continue;
       if (agent.upstream !== "sales-agent") continue;
       expect(agent.instructions, agent.slug).toBeTruthy();
     }

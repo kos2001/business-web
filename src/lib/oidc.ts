@@ -52,6 +52,27 @@ export interface OidcClaims {
   name?: string;
 }
 
+/**
+ * The post-login destination, reduced to something safe to redirect to.
+ *
+ * Reflecting an arbitrary `next` is an open redirect, and the login link is
+ * exactly what a phishing page wants to borrow because it starts on a domain
+ * the user trusts. Only a same-site absolute path survives.
+ *
+ * `//host` and `/\host` are both rejected: the first is protocol-relative, and
+ * some browsers normalise a backslash to a forward slash before resolving, so
+ * the second reaches the same place. Anything not starting with `/` — a full
+ * URL, a scheme like `javascript:` — is replaced rather than repaired.
+ *
+ * This lived inline in the login route, where nothing could test it.
+ */
+export function safeNext(requested: string | null | undefined): string {
+  const value = requested ?? "";
+  if (!value.startsWith("/")) return "/";
+  if (value.startsWith("//") || value.startsWith("/\\")) return "/";
+  return value;
+}
+
 export function oidcConfigured(): boolean {
   return Boolean(
     process.env.OIDC_ISSUER &&

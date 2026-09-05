@@ -13,6 +13,7 @@ process.env.DEFECTS_DB_PATH = DB;
 
 const {
   _resetForTests,
+  defectsInPattern,
   normaliseQuote,
   recordDefect,
   recurringPatterns,
@@ -213,5 +214,64 @@ describe("시드가 드러낸 묶기 결함", () => {
 
   it("전혀 다른 단어는 오타로 묶지 않는다", () => {
     expect(spellingChange("계약서 전체", "'해지'의 오타입니다.")).toBeNull();
+  });
+});
+
+describe("defectsInPattern", () => {
+  /**
+   * Grouping keeps one quote and discards the rest, and the rest is what a
+   * person needs to write the rule. This is the page's answer to "what did it
+   * actually say" — the question a count on its own cannot answer.
+   */
+  beforeEach(() => {
+    recordDefect({ workspace: "contract", kind: "spelling", quote: "지연배상율", reason: "'지연배상률'의 오타입니다." });
+    recordDefect({ workspace: "contract-plan", kind: "spelling", quote: "배상율 인하", reason: "'배상률'의 오타입니다." });
+    recordDefect({ workspace: "pipeline", kind: "spelling", quote: "연체 배상율", reason: "'연체 배상률'의 오타입니다." });
+    recordDefect({ workspace: "qbr", kind: "number", quote: "40일이면 초과", reason: "2.5% × 40 은 정확히 100% 입니다." });
+  });
+
+  it("returns every record behind one pattern, not the representative one", () => {
+    const [pattern] = recurringPatterns(30, 3);
+    const rows = defectsInPattern(pattern.key);
+    expect(rows).toHaveLength(3);
+    // All three wordings, which is the point — a rule written from any one of
+    // them alone would be narrower than the habit.
+    expect(rows.map((r) => r.quote).sort()).toEqual([
+      "배상율 인하",
+      "연체 배상율",
+      "지연배상율",
+    ]);
+  });
+
+  it("names the workspace each one came from", () => {
+    const [pattern] = recurringPatterns(30, 3);
+    expect(defectsInPattern(pattern.key).map((r) => r.workspace).sort()).toEqual([
+      "contract",
+      "contract-plan",
+      "pipeline",
+    ]);
+  });
+
+  it("does not mix in a different pattern", () => {
+    const [pattern] = recurringPatterns(30, 3);
+    expect(defectsInPattern(pattern.key).every((r) => r.kind === "spelling")).toBe(true);
+  });
+
+  it("returns nothing for a key that does not exist", () => {
+    expect(defectsInPattern("spelling:없음→없음")).toEqual([]);
+  });
+
+  it("honours the window, so an old record drops out with its pattern", () => {
+    const [pattern] = recurringPatterns(30, 3);
+    const future = Date.now() + 400 * 86_400_000;
+    expect(defectsInPattern(pattern.key, 30, 50, future)).toEqual([]);
+  });
+
+  it("caps the list, because a panel inside a card cannot show two hundred", () => {
+    for (let i = 0; i < 8; i += 1) {
+      recordDefect({ workspace: `w${i}`, kind: "spelling", quote: "지연배상율", reason: "'지연배상률'의 오타입니다." });
+    }
+    const [pattern] = recurringPatterns(30, 3);
+    expect(defectsInPattern(pattern.key, 30, 5)).toHaveLength(5);
   });
 });
